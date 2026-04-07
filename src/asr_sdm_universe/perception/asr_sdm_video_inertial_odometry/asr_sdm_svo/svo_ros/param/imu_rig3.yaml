@@ -1,0 +1,23 @@
+# IMU ROS 参数 - Rig3 (单目相机 + IMU)
+# 此文件作为 ROS 2 --params-file 被 launch 加载
+# 注意：IMU 标定参数（delay_imu_cam, 噪声密度等）放在 imu_rig3_calib.yaml 中由代码直接读取
+
+/**:
+  ros__parameters:
+    imu_topic: "/imu/data"
+    set_initial_attitude_from_gravity: true
+
+    # T_cam_imu: 4x4 矩阵（行主序），表示 T_imu_cam0（IMU 到相机的变换）
+    # 未标定时用单位矩阵。已标定时填写实际值（从 Kalibr 等工具获得）
+    # 格式: [R00,R01,R02,t0, R10,R11,R12,t1, R20,R21,R22,t2, 0,0,0,1]
+    T_cam_imu:
+      [1.0, 0.0, 0.0, 0.0,
+       0.0, 1.0, 0.0, 0.0,
+       0.0, 0.0, 1.0, 0.0,
+       0.0, 0.0, 0.0, 1.0]
+
+    # 静止检测（可选）
+    imu_temporal_stationary_check: false
+    imu_temporal_window_length_sec: 0.5
+    stationary_acc_sigma_thresh: 0.0
+    stationary_gyr_sigma_thresh: 0.0

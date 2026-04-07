@@ -1,0 +1,91 @@
+#ifndef SVO_VISUALIZER_H_
+#define SVO_VISUALIZER_H_
+
+#include <image_transport/image_transport.hpp>
+#include <rclcpp/rclcpp.hpp>
+
+#include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
+#include <nav_msgs/msg/odometry.hpp>
+#include <nav_msgs/msg/path.hpp>
+#include <sensor_msgs/msg/camera_info.hpp>
+#include <sensor_msgs/msg/image.hpp>
+#include <std_msgs/msg/color_rgba.hpp>
+#include <asr_sdm_perception_msgs/msg/dense_input.hpp>
+#include <asr_sdm_perception_msgs/msg/info.hpp>
+#include <visualization_msgs/msg/marker.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
+
+#include <boost/shared_ptr.hpp>
+#include <boost/thread.hpp>
+
+#include <svo/global.h>
+#include <tf2_ros/transform_broadcaster.h>
+
+#include <iostream>
+#include <queue>
+
+namespace svo
+{
+
+class Frame;
+class Point;
+class Map;
+class FrameHandlerMono;
+
+typedef boost::shared_ptr<Frame> FramePtr;
+
+/// This class bundles all functions to publish visualisation messages.
+class Visualizer
+{
+public:
+  rclcpp::Node::SharedPtr node_;
+  size_t trace_id_;
+  size_t img_pub_level_;
+  size_t img_pub_nth_;
+  size_t dense_pub_nth_;
+  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_frames_;
+  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr pub_points_;
+  rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pub_trajectory_;
+  rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr pub_pose_;
+  rclcpp::Publisher<asr_sdm_perception_msgs::msg::Info>::SharedPtr pub_info_;
+  rclcpp::Publisher<asr_sdm_perception_msgs::msg::DenseInput>::SharedPtr pub_dense_;
+  image_transport::Publisher pub_images_;
+  std::shared_ptr<tf2_ros::TransformBroadcaster> br_;
+  bool publish_world_in_cam_frame_;
+  bool publish_map_every_frame_;
+  rclcpp::Duration publish_points_display_time_;
+  SE3d T_world_from_vision_;
+  nav_msgs::msg::Path trajectory_msg_;
+  static constexpr size_t kMaxTrajectorySize = 5000;
+
+  // Accumulated trajectory line (LINE_STRIP) for continuous path visualization
+  visualization_msgs::msg::Marker trajectory_line_msg_;
+  static constexpr size_t kMaxTrajectoryLinePts = 2000;
+
+  Visualizer(rclcpp::Node::SharedPtr node);
+
+  ~Visualizer() {};
+
+  void publishMinimal(
+    const cv::Mat & img, const FramePtr & frame, const FrameHandlerMono & slam,
+    const double timestamp);
+
+  void visualizeMarkers(const FramePtr & frame, const set<FramePtr> & core_kfs, const Map & map);
+
+  void publishMapRegion(set<FramePtr> frames);
+
+  void removeDeletedPts(const Map & map);
+
+  void displayKeyframeWithMps(const FramePtr & frame, int ts);
+
+  void exportToDense(const FramePtr & frame);
+
+  void resetTrajectory() {
+    trajectory_msg_.poses.clear();
+    trajectory_line_msg_.points.clear();
+  }
+};
+
+}  
+
+#endif 

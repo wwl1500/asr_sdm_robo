@@ -1,0 +1,15 @@
+/asr_sdm_svo:
+  ros__parameters:
+
+    grid_size: 30
+    max_n_kfs: 10
+    loba_num_iter: 0
+
+    # -------------------------------------------------------------------------
+    # Safe improvements over SVO defaults:
+    #   - pyramid=4 (better fast-motion tolerance, small extra cost)
+    #   - max_epi_search_steps=15000 (large inter-frame displacement)
+    # -------------------------------------------------------------------------
+
+    n_pyr_levels: 4
+    max_epi_search_steps: 15000

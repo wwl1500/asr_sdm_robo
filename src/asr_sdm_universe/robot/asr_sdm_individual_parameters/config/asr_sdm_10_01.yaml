@@ -1,0 +1,15 @@
+/asr_sdm_hardware:
+  ros__parameters:
+    uart2can:
+      uart_port: "/dev/ttyS2"
+      uart_baudrate: 115200
+      can_id_mask: 0x100100
+      can_frame_length: 8
+      uart_frame_head: 0xAA
+      uart_frame_tail: 0xBB
+    imu:
+      imu_name: "hiwonder_10axis"
+      enable: true
+      uart_port: "/dev/ttyS3"
+      uart_baudrate: 115200
+      uart_frame_head: 0x55
