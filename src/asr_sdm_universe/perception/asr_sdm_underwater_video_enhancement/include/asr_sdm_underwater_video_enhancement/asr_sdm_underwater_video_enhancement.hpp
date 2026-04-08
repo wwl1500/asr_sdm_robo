@@ -8,10 +8,13 @@
 
 #include <vector>
 
-#ifdef HAVE_CV_BRIDGE_HPP
-#include <cv_bridge/cv_bridge.hpp>
+// cv_bridge header differs between Ubuntu versions:
+// Ubuntu 22.04 (ROS2 Humble): cv_bridge.h
+// Ubuntu 24.04 (ROS2 Jazzy): cv_bridge.hpp
+#ifdef ROS_DISTRO_HUMBLE
+#include <cv_bridge/cv_bridge.h>
 #else
-#include <cv_bridge/cv_bridge.hpp>  // TODO: Change it back to .h once the issue is resolved.
+#include <cv_bridge/cv_bridge.hpp>
 #endif
 
 namespace asr_sdm_underwater_video_enhancement

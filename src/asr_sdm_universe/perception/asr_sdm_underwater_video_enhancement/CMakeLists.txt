@@ -15,13 +15,21 @@ find_package(sensor_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(OpenCV REQUIRED)
 
+# Set ROS_DISTRO macros
+set(ROS_DISTRO $ENV{ROS_DISTRO})
+if(${ROS_DISTRO} STREQUAL "jazzy")
+    add_compile_definitions(ROS_DISTRO_JAZZY)
+elseif(${ROS_DISTRO} STREQUAL "rolling")
+    add_compile_definitions(ROS_DISTRO_ROLLING)
+elseif(${ROS_DISTRO} STREQUAL "humble")
+    add_compile_definitions(ROS_DISTRO_HUMBLE)
+endif()
 
 # =====================================================================
 # Header detection (IMPORTANT)
 # =====================================================================
 include(CheckIncludeFileCXX)
 check_include_file_cxx(cv_bridge/cv_bridge.hpp HAVE_CV_BRIDGE_HPP)
-
 
 # =====================================================================
 # Target

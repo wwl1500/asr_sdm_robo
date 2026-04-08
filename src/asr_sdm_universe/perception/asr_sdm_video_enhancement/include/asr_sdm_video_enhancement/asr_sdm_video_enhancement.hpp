@@ -3,7 +3,15 @@
 
 #include "asr_sdm_video_enhancement/enhancement_processor.hpp"
 
-#include <cv_bridge/cv_bridge.hpp>  // ubuntu 24.04 -> cv_bridge.hpp; ubuntu 22.04 -> cv_bridge.h
+// cv_bridge header differs between Ubuntu versions:
+// Ubuntu 22.04 (ROS2 Humble): cv_bridge.h
+// Ubuntu 24.04 (ROS2 Jazzy): cv_bridge.hpp
+#ifdef ROS_DISTRO_HUMBLE
+#include <cv_bridge/cv_bridge.h>
+#else
+#include <cv_bridge/cv_bridge.hpp>
+#endif
+
 #include <image_transport/image_transport.hpp>
 #include <rclcpp/rclcpp.hpp>
 

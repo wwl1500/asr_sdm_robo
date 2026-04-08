@@ -16,6 +16,16 @@ find_package(OpenCV REQUIRED)
 find_package(rosbag2_cpp REQUIRED)
 find_package(rosbag2_storage REQUIRED)
 
+# Set ROS_DISTRO macros
+set(ROS_DISTRO $ENV{ROS_DISTRO})
+if(${ROS_DISTRO} STREQUAL "jazzy")
+    add_compile_definitions(ROS_DISTRO_JAZZY)
+elseif(${ROS_DISTRO} STREQUAL "rolling")
+    add_compile_definitions(ROS_DISTRO_ROLLING)
+elseif(${ROS_DISTRO} STREQUAL "humble")
+    add_compile_definitions(ROS_DISTRO_HUMBLE)
+endif()
+
 add_library(asr_sdm_video_enhancement_core src/enhancement_processor.cpp)
 add_executable(asr_sdm_video_enhancement src/asr_sdm_video_enhancement.cpp)
 add_executable(asr_sdm_mcap_player src/asr_sdm_video_file_publisher.cpp)
