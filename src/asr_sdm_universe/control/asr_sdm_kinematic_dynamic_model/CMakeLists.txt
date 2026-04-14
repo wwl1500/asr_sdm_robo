@@ -16,6 +16,24 @@ find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(urdfdom_headers REQUIRED)
 
+add_library(underwater_dynamics
+  src/underwater_dynamics.cpp
+)
+
+target_include_directories(underwater_dynamics
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+  PRIVATE
+    ${EIGEN3_INCLUDE_DIRS}
+)
+
+target_link_libraries(underwater_dynamics
+  PUBLIC
+    pinocchio::pinocchio
+    Eigen3::Eigen
+)
+
 add_executable(pinocchio_dynamics_node
   src/pinocchio_dynamics_node.cpp
 )
@@ -27,13 +45,17 @@ target_include_directories(pinocchio_dynamics_node
 
 target_link_libraries(pinocchio_dynamics_node
   PRIVATE
+    underwater_dynamics
     ament_index_cpp::ament_index_cpp
-    pinocchio::pinocchio
     rclcpp::rclcpp
-    Eigen3::Eigen
     ${geometry_msgs_LIBRARIES}
     ${sensor_msgs_LIBRARIES}
     ${std_msgs_LIBRARIES}
+)
+
+install(
+  TARGETS underwater_dynamics
+  DESTINATION lib
 )
 
 install(
@@ -42,11 +64,17 @@ install(
 )
 
 install(
+  DIRECTORY include/
+  DESTINATION include
+)
+
+install(
   DIRECTORY launch
   DESTINATION share/${PROJECT_NAME}
 )
 
 if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights
   # comment the line when a copyright and license is added to all source files
@@ -56,6 +84,19 @@ if(BUILD_TESTING)
   # a copyright and license is added to all source files
   set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
+
+  ament_add_gtest(test_underwater_dynamics
+    test/test_underwater_dynamics.cpp
+  )
+
+  if(TARGET test_underwater_dynamics)
+    target_link_libraries(test_underwater_dynamics
+      underwater_dynamics
+      ament_index_cpp::ament_index_cpp
+      pinocchio::pinocchio
+      Eigen3::Eigen
+    )
+  endif()
 endif()
 
 ament_package()
