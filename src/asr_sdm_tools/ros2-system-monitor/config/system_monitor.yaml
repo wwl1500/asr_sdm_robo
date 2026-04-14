@@ -1,5 +1,6 @@
 cpu_monitor:
   ros__parameters:
+    enable_cpu_monitor: true
     check_core_temps: true
     cpu_load_warn:  0.9
     cpu_load_error: 1.0
@@ -9,6 +10,7 @@ cpu_monitor:
     cpu_temp_error: 90.0
 hdd_monitor:
   ros__parameters:
+    enable_hdd_monitor: true
     no_hw_temp: true
     no_hw_temp_warn: false
     hdd_level_warn: 0.95
@@ -17,14 +19,17 @@ hdd_monitor:
     hdd_temp_error: 70.0
 mem_monitor:
   ros__parameters:
+    enable_mem_monitor: true
     mem_level_warn: 0.95
     mem_level_error: 0.99
 ntp_monitor:
   ros__parameters:
+    enable_ntp_monitor: false
     reference_host: ntp.ubuntu.com
     offset_tolerance: 500.0
     error_offset_tolerance: 5000000.0
 net_monitor:
   ros__parameters:
+    enable_net_monitor: true
     net_level_warn: 0.95
     net_capacity: 128.0
