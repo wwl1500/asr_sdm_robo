@@ -1,24 +1,24 @@
 <?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematype="xml"?>
 <package format="3">
   <name>asr_sdm_esdf_map</name>
-  <version>0.0.1</version>
-  <description> ESDF Tools </description>
-  <maintainer email="hlx1996@gmail.com">hlx1996</maintainer>
-  <license>MIT</license>
+  <version>0.0.0</version>
+  <description>The asr_sdm_esdf_map package (ROS 2)</description>
+
+  <maintainer email="bzhouai@todo.todo">bzhouai</maintainer>
+  <license>TODO</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <depend>rclcpp</depend>
   <depend>sensor_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
   <depend>std_msgs</depend>
   <depend>visualization_msgs</depend>
-  <depend>nav_msgs</depend>
-  <depend>geometry_msgs</depend>
   <depend>cv_bridge</depend>
+  <depend>message_filters</depend>
   <depend>pcl_conversions</depend>
-  <exec_depend>launch</exec_depend>
-  <exec_depend>launch_ros</exec_depend>
-  <exec_depend>rviz2</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

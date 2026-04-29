@@ -1,104 +1,96 @@
 cmake_minimum_required(VERSION 3.8)
 project(asr_sdm_esdf_map)
 
-set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS 1 CACHE BOOL "Suppress CMake developer warnings" FORCE)
-
-if(POLICY CMP0074)
-  cmake_policy(SET CMP0074 NEW)
+if(NOT CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 14)
 endif()
 
-if(POLICY CMP0144)
-  cmake_policy(SET CMP0144 NEW)
-endif()
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -O3")
 
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(std_msgs REQUIRED)
-find_package(nav_msgs REQUIRED)
-find_package(visualization_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
+find_package(message_filters REQUIRED)
 find_package(pcl_conversions REQUIRED)
 
-find_package(Eigen3 REQUIRED)
-find_package(PCL 1.7 REQUIRED)
+find_package(PCL REQUIRED)
 find_package(OpenCV REQUIRED)
-set(Eigen3_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR})
+find_package(Eigen3 REQUIRED)
 
-include_directories(${PROJECT_SOURCE_DIR}/include)
-
-include_directories(
-    include
-    SYSTEM
-    ${Eigen3_INCLUDE_DIRS}
-    ${PCL_INCLUDE_DIRS}
-    ${OpenCV_INCLUDE_DIRS}
+add_library(asr_sdm_esdf_map SHARED
+  src/sdf_map.cpp
+  src/obj_predictor.cpp
+  src/edt_environment.cpp
+  src/raycast.cpp
 )
 
-link_directories(${PCL_LIBRARY_DIRS})
-
-set(CMAKE_CXX_FLAGS "-std=c++17 ${CMAKE_CXX_FLAGS} -O3 -Wall -pthread") # -Wextra -Werror
-set(CMAKE_BUILD_TYPE "RELEASE")
-#add_executable(test_esdf_map
-#        include/ESDFMap.h
-#        src/ESDFMap.cpp
-#        include/timing.h
-#        src/timing.cc
-#        test/test_ESDF_Map.cpp
-#        )
-#target_link_libraries(test_esdf_map
-#        ${catkin_LIBRARIES}
-#        )
-#FIND_PACKAGE( OpenMP REQUIRED)
-#if(OPENMP_FOUND)
-#message("OPENMP FOUND")
-#set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-#set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
-#endif()
-
-add_executable(test_fiesta
-        include/asr_sdm_esdf_map/parameters.hpp
-        src/parameters.cpp
-        include/asr_sdm_esdf_map/timing.hpp
-        src/timing.cc
-        include/asr_sdm_esdf_map/raycast.hpp
-        src/raycast.cpp
-        include/asr_sdm_esdf_map/ESDFMap.hpp
-        src/ESDFMap.cpp
-        include/asr_sdm_esdf_map/asr_sdm_esdf_map.hpp
-        test/test_fiesta.cpp
-        )
-target_link_libraries(test_fiesta
-        ${PCL_LIBRARIES}
-        ${OpenCV_LIBS}
-        )
-ament_target_dependencies(test_fiesta
-        rclcpp
-        std_msgs
-        nav_msgs
-        visualization_msgs
-        sensor_msgs
-        geometry_msgs
-        cv_bridge
-        pcl_conversions
+target_include_directories(asr_sdm_esdf_map PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+  ${OpenCV_INCLUDE_DIRS}
+  ${PCL_INCLUDE_DIRS}
 )
 
-install(TARGETS test_fiesta
-  DESTINATION lib/${PROJECT_NAME}
+ament_target_dependencies(asr_sdm_esdf_map
+  rclcpp
+  sensor_msgs
+  geometry_msgs
+  nav_msgs
+  visualization_msgs
+  cv_bridge
+  message_filters
+  pcl_conversions
 )
 
-install(
-  DIRECTORY launch
-  DESTINATION share/${PROJECT_NAME}
-  FILES_MATCHING PATTERN "*_launch.py"
+if(TARGET Eigen3::Eigen)
+  target_link_libraries(asr_sdm_esdf_map Eigen3::Eigen)
+else()
+  target_include_directories(asr_sdm_esdf_map PUBLIC ${EIGEN3_INCLUDE_DIR})
+endif()
+
+target_link_libraries(asr_sdm_esdf_map ${PCL_LIBRARIES} ${OpenCV_LIBS})
+
+add_executable(obj_generator
+  src/obj_generator.cpp
 )
 
-install(
-  FILES demo.rviz
-  DESTINATION share/${PROJECT_NAME}
+target_include_directories(obj_generator PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+ament_target_dependencies(obj_generator
+  rclcpp
+  sensor_msgs
+  geometry_msgs
+  visualization_msgs
+)
+
+install(TARGETS asr_sdm_esdf_map obj_generator
+  EXPORT export_${PROJECT_NAME}
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION lib/${PROJECT_NAME}
+)
+
+install(DIRECTORY include/
+  DESTINATION include
+)
+
+ament_export_targets(export_${PROJECT_NAME})
+ament_export_include_directories(include)
+ament_export_dependencies(
+  rclcpp
+  sensor_msgs
+  geometry_msgs
+  nav_msgs
+  visualization_msgs
+  cv_bridge
+  message_filters
+  pcl_conversions
 )
 
 ament_package()
-
