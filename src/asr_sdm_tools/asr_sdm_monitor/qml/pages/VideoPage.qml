@@ -45,7 +45,19 @@ Item {
         return slotIndex === 0 ? RosUi.videoFrame0Revision : RosUi.videoFrame1Revision
     }
 
+    readonly property int topicComboMinWidth: 64
+    readonly property int topicComboMaxWidth: 520
     readonly property var topicOptions: makeTopicOptions(RosUi.videoTopics)
+
+    function scaledTopicComboWidth(headerWidth) {
+        let targetWidth = headerWidth * 0.34
+        return Math.max(topicComboMinWidth, Math.min(topicComboMaxWidth, targetWidth))
+    }
+
+    function scaledTopicPopupHeight(slotHeight, contentHeight) {
+        let targetHeight = Math.max(160, Math.min(360, slotHeight * 0.45))
+        return Math.min(contentHeight, targetHeight)
+    }
 
     ColumnLayout {
         anchors.fill: parent
@@ -68,6 +80,8 @@ Item {
 
                     Layout.fillWidth: true
                     Layout.fillHeight: true
+                    Layout.minimumWidth: 0
+                    clip: true
                     radius: 12
                     color: root.appPalette.surfaceBackground
                     border.color: root.appPalette.border
@@ -77,29 +91,40 @@ Item {
                         anchors.fill: parent
                         anchors.margins: 16
                         spacing: 12
+                        clip: true
 
                         RowLayout {
+                            id: headerRow
                             Layout.fillWidth: true
-                            spacing: 12
+                            Layout.minimumWidth: 0
+                            spacing: 8
+                            clip: true
 
                             Text {
+                                id: videoWindowTitle
+                                Layout.fillWidth: true
+                                Layout.minimumWidth: 0
                                 text: I18n.t(root.language, videoSlot.slotIndex === 0 ? "videoWindowLeft" : "videoWindowRight")
                                 font.pixelSize: 18
                                 font.bold: true
                                 color: root.appPalette.textPrimary
+                                elide: Text.ElideRight
                             }
 
-                            Item { Layout.fillWidth: true }
-
                             Text {
+                                id: topicLabel
                                 text: I18n.t(root.language, "videoTopic")
                                 font.pixelSize: 16
                                 color: root.appPalette.textSecondary
+                                elide: Text.ElideRight
                             }
 
                             ComboBox {
                                 id: topicCombo
-                                Layout.preferredWidth: 360
+                                readonly property real comboMaxInsideHeader: Math.max(root.topicComboMinWidth, headerRow.width - topicLabel.implicitWidth - 24)
+                                Layout.minimumWidth: Math.min(root.topicComboMinWidth, comboMaxInsideHeader)
+                                Layout.maximumWidth: Math.min(root.topicComboMaxWidth, comboMaxInsideHeader)
+                                Layout.preferredWidth: Math.min(Math.min(root.topicComboMaxWidth, comboMaxInsideHeader), root.scaledTopicComboWidth(headerRow.width))
                                 model: root.topicOptions
                                 textRole: "label"
                                 currentIndex: root.indexOfTopic(videoSlot.selectedTopic)
@@ -151,7 +176,7 @@ Item {
                                 popup: Popup {
                                     y: topicCombo.height
                                     width: topicCombo.width
-                                    implicitHeight: Math.min(contentItem.implicitHeight, 320)
+                                    implicitHeight: root.scaledTopicPopupHeight(videoSlot.height, contentItem.implicitHeight)
                                     padding: 1
 
                                     contentItem: ListView {
@@ -176,6 +201,8 @@ Item {
                             id: videoFrame
                             Layout.fillWidth: true
                             Layout.fillHeight: true
+                            Layout.minimumWidth: 0
+                            Layout.minimumHeight: 0
                             radius: 10
                             color: root.appPalette.inputBackground
                             border.color: root.appPalette.border
@@ -200,7 +227,7 @@ Item {
 
                                 Text {
                                     anchors.horizontalCenter: parent.horizontalCenter
-                                    width: Math.min(videoFrame.width - 48, 520)
+                                    width: Math.max(0, Math.min(videoFrame.width - 48, 520))
                                     text: videoSlot.selectedTopic === ""
                                           ? I18n.t(root.language, "noTopicSelected")
                                           : I18n.t(root.language, "waitingVideoFrame")
@@ -213,7 +240,7 @@ Item {
 
                                 Text {
                                     anchors.horizontalCenter: parent.horizontalCenter
-                                    width: Math.min(videoFrame.width - 48, 520)
+                                    width: Math.max(0, Math.min(videoFrame.width - 48, 520))
                                     text: (RosUi.videoTopics.length === 0 && videoSlot.selectedTopic === "")
                                           ? I18n.t(root.language, "noVideoTopics")
                                           : videoSlot.streamStatus
@@ -226,8 +253,11 @@ Item {
                         }
 
                         RowLayout {
+                            id: statusRow
                             Layout.fillWidth: true
+                            Layout.minimumWidth: 0
                             spacing: 8
+                            clip: true
 
                             Text {
                                 text: I18n.t(root.language, "currentVideoTopic")
@@ -237,6 +267,7 @@ Item {
 
                             Text {
                                 Layout.fillWidth: true
+                                Layout.minimumWidth: 0
                                 text: videoSlot.selectedTopic === "" ? I18n.t(root.language, "none") : videoSlot.selectedTopic
                                 font.pixelSize: 15
                                 color: root.appPalette.textPrimary
@@ -244,6 +275,8 @@ Item {
                             }
 
                             Text {
+                                Layout.maximumWidth: Math.max(72, statusRow.width * 0.42)
+                                Layout.minimumWidth: 0
                                 text: I18n.t(root.language, "videoStatus") + " " + videoSlot.streamStatus
                                 font.pixelSize: 15
                                 color: root.appPalette.textSecondary

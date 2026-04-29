@@ -17,6 +17,9 @@ ApplicationWindow {
     flags: Qt.Window | Qt.FramelessWindowHint
 
     readonly property int resizeHandleSize: 6
+    readonly property int titleButtonWidth: 48
+    readonly property int titleButtonIconSize: 12
+    readonly property int titleButtonStrokeSize: 2
     property string currentThemeMode: "dark"
     property string currentLanguage: "en"
     property int currentSection: 0
@@ -47,7 +50,11 @@ ApplicationWindow {
             }
 
             MouseArea {
-                anchors.fill: parent
+                anchors.top: parent.top
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                anchors.rightMargin: windowButtonRow.width
                 acceptedButtons: Qt.LeftButton
                 onPressed: function(mouse) {
                     if (mouse.button === Qt.LeftButton) {
@@ -59,6 +66,167 @@ ApplicationWindow {
                         window.showNormal()
                     } else {
                         window.showMaximized()
+                    }
+                }
+            }
+
+            Row {
+                id: windowButtonRow
+                anchors.top: parent.top
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                z: 2
+                spacing: 0
+
+                Button {
+                    id: minimizeButton
+                    width: window.titleButtonWidth
+                    height: parent.height
+                    hoverEnabled: true
+                    focusPolicy: Qt.NoFocus
+                    ToolTip.visible: hovered
+                    ToolTip.delay: 500
+                    ToolTip.text: "Minimize"
+                    onClicked: window.showMinimized()
+
+                    background: Rectangle {
+                        color: minimizeButton.hovered ? window.appPalette.inputBackground : "transparent"
+                    }
+
+                    contentItem: Item {
+                        implicitWidth: window.titleButtonWidth
+                        implicitHeight: windowTitleBar.height
+
+                        Item {
+                            width: window.titleButtonIconSize
+                            height: window.titleButtonIconSize
+                            anchors.centerIn: parent
+
+                            Rectangle {
+                                anchors.centerIn: parent
+                                width: parent.width
+                                height: window.titleButtonStrokeSize
+                                radius: height / 2
+                                color: window.appPalette.textSecondary
+                            }
+                        }
+                    }
+                }
+
+                Button {
+                    id: restoreButton
+                    width: window.titleButtonWidth
+                    height: parent.height
+                    hoverEnabled: true
+                    focusPolicy: Qt.NoFocus
+                    ToolTip.visible: hovered
+                    ToolTip.delay: 500
+                    ToolTip.text: window.visibility === Window.Maximized ? "Restore Down" : "Maximize"
+                    onClicked: {
+                        if (window.visibility === Window.Maximized || window.visibility === Window.FullScreen) {
+                            window.showNormal()
+                        } else {
+                            window.showMaximized()
+                        }
+                    }
+
+                    background: Rectangle {
+                        color: restoreButton.hovered ? window.appPalette.inputBackground : "transparent"
+                    }
+
+                    contentItem: Item {
+                        implicitWidth: window.titleButtonWidth
+                        implicitHeight: windowTitleBar.height
+                        property bool restoreDown: window.visibility === Window.Maximized || window.visibility === Window.FullScreen
+                        property color iconColor: window.appPalette.textSecondary
+                        property color iconBackground: restoreButton.hovered ? window.appPalette.inputBackground : window.appPalette.headerBackground
+
+                        Item {
+                            width: window.titleButtonIconSize
+                            height: window.titleButtonIconSize
+                            anchors.centerIn: parent
+
+                            Rectangle {
+                                visible: !parent.parent.restoreDown
+                                width: parent.width - 2
+                                height: parent.height - 2
+                                anchors.centerIn: parent
+                                color: "transparent"
+                                border.color: parent.parent.iconColor
+                                border.width: window.titleButtonStrokeSize
+                            }
+
+                            Rectangle {
+                                visible: parent.parent.restoreDown
+                                x: 3
+                                y: 1
+                                width: parent.width - 4
+                                height: parent.height - 4
+                                color: "transparent"
+                                border.color: parent.parent.iconColor
+                                border.width: window.titleButtonStrokeSize
+                            }
+
+                            Rectangle {
+                                visible: parent.parent.restoreDown
+                                x: 1
+                                y: 3
+                                width: parent.width - 4
+                                height: parent.height - 4
+                                color: parent.parent.iconBackground
+                                border.color: parent.parent.iconColor
+                                border.width: window.titleButtonStrokeSize
+                            }
+                        }
+                    }
+                }
+
+                Button {
+                    id: closeButton
+                    width: window.titleButtonWidth
+                    height: parent.height
+                    hoverEnabled: true
+                    focusPolicy: Qt.NoFocus
+                    ToolTip.visible: hovered
+                    ToolTip.delay: 500
+                    ToolTip.text: "Close"
+                    onClicked: {
+                        window.close()
+                        Qt.quit()
+                    }
+
+                    background: Rectangle {
+                        color: closeButton.hovered ? "#c42b1c" : "transparent"
+                    }
+
+                    contentItem: Item {
+                        implicitWidth: window.titleButtonWidth
+                        implicitHeight: windowTitleBar.height
+                        property color iconColor: closeButton.hovered ? "white" : window.appPalette.textSecondary
+
+                        Item {
+                            width: window.titleButtonIconSize
+                            height: window.titleButtonIconSize
+                            anchors.centerIn: parent
+
+                            Rectangle {
+                                anchors.centerIn: parent
+                                width: parent.width
+                                height: window.titleButtonStrokeSize
+                                radius: height / 2
+                                rotation: 45
+                                color: parent.parent.iconColor
+                            }
+
+                            Rectangle {
+                                anchors.centerIn: parent
+                                width: parent.width
+                                height: window.titleButtonStrokeSize
+                                radius: height / 2
+                                rotation: -45
+                                color: parent.parent.iconColor
+                            }
+                        }
                     }
                 }
             }
