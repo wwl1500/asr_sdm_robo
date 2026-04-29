@@ -1,7 +1,6 @@
 #ifndef BASE_HPP_
 #define BASE_HPP_
 
-
 #include <algorithm>
 #include <cassert>
 #include <cmath>
@@ -14,13 +13,19 @@ namespace geometry
 {
 
 using Real = double;
-inline constexpr Real EPS = static_cast<Real>(1e-8);
+inline constexpr Real EPS = static_cast<Real>(1e-6);
 inline const Real PI = std::acos(static_cast<Real>(-1));
 
 enum { OUT, ON, IN };
 
-inline int sign(const Real & r) { return r <= -EPS ? -1 : r >= EPS ? 1 : 0; }
-inline bool equals(const Real & a, const Real & b) { return sign(a - b) == 0; }
+inline int sign(const Real & r)
+{
+  return r <= -EPS ? -1 : r >= EPS ? 1 : 0;
+}
+inline bool equals(const Real & a, const Real & b)
+{
+  return sign(a - b) == 0;
+}
 
 // Curated re-exports so library headers don't have to std::-qualify every name.
 using std::abs;
