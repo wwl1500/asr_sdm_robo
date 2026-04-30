@@ -17,14 +17,14 @@
 
 namespace
 {
-constexpr int kVideoSlotCount = 2;
+constexpr int kVideoSlotCount = 4;
 constexpr const char *kImageType = "sensor_msgs/msg/Image";
 constexpr const char *kCompressedImageType = "sensor_msgs/msg/CompressedImage";
 }
 
 RosUiBridge::RosUiBridge(QObject *parent)
     : QObject(parent),
-      ros_status_("Waiting for /diagnostics and /system_monitor/video ...")
+      ros_status_("Waiting for /diagnostics and /perception image topics ...")
 {
     node_ = std::make_shared<rclcpp::Node>("diagnostics_qml_ui_node");
 
@@ -35,34 +35,22 @@ RosUiBridge::RosUiBridge(QObject *parent)
             diagnosticsCallback(msg);
         });
 
-    auto latched_qos = rclcpp::QoS(1);
-    video_topics_sub_ = node_->create_subscription<std_msgs::msg::String>(
-        (video_topic_namespace_ + QStringLiteral("/available_topics")).toStdString(),
-        latched_qos.transient_local().reliable(),
-        [this](const std_msgs::msg::String::SharedPtr msg)
+    // /perception video topics are discovered automatically from the ROS graph.
+    video_topic_discovery_timer_ = node_->create_wall_timer(
+        std::chrono::milliseconds(3000),
+        [this]()
         {
-            handleVideoTopicsMessage(msg);
+            discoverVideoTopics();
         });
 
-    for (int slot_index = 0; slot_index < kVideoSlotCount; ++slot_index) {
-        video_status_subs_[static_cast<size_t>(slot_index)] = node_->create_subscription<std_msgs::msg::String>(
-            (video_topic_namespace_ + QStringLiteral("/slot%1/status").arg(slot_index)).toStdString(),
-            latched_qos.transient_local().reliable(),
-            [this, slot_index](const std_msgs::msg::String::SharedPtr msg)
-            {
-                handleVideoSlotStatusMessage(slot_index, msg);
-            });
-    }
-
-    video_select_pub_ = node_->create_publisher<std_msgs::msg::String>(
-        (video_topic_namespace_ + QStringLiteral("/select")).toStdString(),
-        latched_qos.transient_local().reliable());
 
     executor_ = std::make_unique<rclcpp::executors::SingleThreadedExecutor>();
     executor_->add_node(node_);
 
-    ros_status_ = "Subscribed: /diagnostics, /system_monitor/video/*";
+    ros_status_ = "Subscribed: /diagnostics; scanning /perception image topics";
     emit rosStatusChanged();
+
+    discoverVideoTopics();
 
     ros_thread_ = std::thread([this]()
     {
@@ -161,6 +149,21 @@ QVariantList RosUiBridge::videoTopics() const
     return video_topics_;
 }
 
+QVariantList RosUiBridge::videoSlots() const
+{
+    QVariantList video_slot_list;
+    for (int slot_index = 0; slot_index < kVideoSlotCount; ++slot_index) {
+        const auto &slot = video_slots_[static_cast<size_t>(slot_index)];
+        QVariantMap item;
+        item[QStringLiteral("topic")] = slot.topic;
+        item[QStringLiteral("topicType")] = slot.topic_type;
+        item[QStringLiteral("status")] = slot.status;
+        item[QStringLiteral("frameRevision")] = slot.frame_revision;
+        video_slot_list.append(item);
+    }
+    return video_slot_list;
+}
+
 QString RosUiBridge::videoTopic0() const
 {
     return video_slots_[0].topic;
@@ -169,6 +172,16 @@ QString RosUiBridge::videoTopic0() const
 QString RosUiBridge::videoTopic1() const
 {
     return video_slots_[1].topic;
+}
+
+QString RosUiBridge::videoTopic2() const
+{
+    return video_slots_[2].topic;
+}
+
+QString RosUiBridge::videoTopic3() const
+{
+    return video_slots_[3].topic;
 }
 
 QString RosUiBridge::videoStatus0() const
@@ -181,6 +194,16 @@ QString RosUiBridge::videoStatus1() const
     return video_slots_[1].status;
 }
 
+QString RosUiBridge::videoStatus2() const
+{
+    return video_slots_[2].status;
+}
+
+QString RosUiBridge::videoStatus3() const
+{
+    return video_slots_[3].status;
+}
+
 int RosUiBridge::videoFrame0Revision() const
 {
     return video_slots_[0].frame_revision;
@@ -189,6 +212,16 @@ int RosUiBridge::videoFrame0Revision() const
 int RosUiBridge::videoFrame1Revision() const
 {
     return video_slots_[1].frame_revision;
+}
+
+int RosUiBridge::videoFrame2Revision() const
+{
+    return video_slots_[2].frame_revision;
+}
+
+int RosUiBridge::videoFrame3Revision() const
+{
+    return video_slots_[3].frame_revision;
 }
 
 QImage RosUiBridge::videoFrameImage(int slotIndex) const
@@ -201,8 +234,35 @@ QImage RosUiBridge::videoFrameImage(int slotIndex) const
     return video_slots_[static_cast<size_t>(slotIndex)].frame.copy();
 }
 
-void RosUiBridge::refreshVideoTopics()
+void RosUiBridge::discoverVideoTopics()
 {
+    if (!node_) {
+        return;
+    }
+
+    QStringList discovered_names;
+    QMap<QString, QString> discovered_types;
+
+    const auto topics_and_types = node_->get_topic_names_and_types();
+    for (const auto &entry : topics_and_types) {
+        const QString topic_name = QString::fromStdString(entry.first).trimmed();
+        for (const std::string &type_string : entry.second) {
+            const QString topic_type = QString::fromStdString(type_string).trimmed();
+            if (isPerceptionImageTopic(topic_name, topic_type)) {
+                discovered_names.append(topic_name);
+                discovered_types.insert(topic_name, topic_type);
+                break;
+            }
+        }
+    }
+
+    QMetaObject::invokeMethod(
+        this,
+        [this, discovered_names, discovered_types]()
+        {
+            applyDiscoveredVideoTopics(discovered_names, discovered_types);
+        },
+        Qt::QueuedConnection);
 }
 
 void RosUiBridge::setVideoTopic(int slotIndex, const QString &topicName)
@@ -212,11 +272,24 @@ void RosUiBridge::setVideoTopic(int slotIndex, const QString &topicName)
     }
 
     const QString normalized_topic = topicName.trimmed();
-    const int other_slot_index = slotIndex == 0 ? 1 : 0;
 
-    if (!normalized_topic.isEmpty() && video_slots_[static_cast<size_t>(other_slot_index)].topic == normalized_topic) {
-        stopVideoSlot(other_slot_index);
-        publishVideoSelection(other_slot_index, QString());
+    if (!normalized_topic.isEmpty() && !video_topic_names_.contains(normalized_topic)) {
+        return;
+    }
+
+    for (int other_slot_index = 0; other_slot_index < kVideoSlotCount; ++other_slot_index) {
+        if (other_slot_index == slotIndex) {
+            continue;
+        }
+
+        auto &other_slot = video_slots_[static_cast<size_t>(other_slot_index)];
+        if (!normalized_topic.isEmpty() && other_slot.topic == normalized_topic) {
+            stopVideoSlot(other_slot_index);
+            other_slot.topic.clear();
+            other_slot.topic_type.clear();
+            other_slot.status = QStringLiteral("No topic selected");
+            emitVideoSlotChanged(other_slot_index);
+        }
     }
 
     auto &slot = video_slots_[static_cast<size_t>(slotIndex)];
@@ -231,7 +304,6 @@ void RosUiBridge::setVideoTopic(int slotIndex, const QString &topicName)
                                            : QStringLiteral("Waiting for video frame");
 
     emitVideoSlotChanged(slotIndex);
-    publishVideoSelection(slotIndex, normalized_topic);
 
     if (!normalized_topic.isEmpty()) {
         startVideoSlot(slotIndex);
@@ -632,34 +704,72 @@ void RosUiBridge::handleVideoTopicsMessage(const std_msgs::msg::String::SharedPt
     const QJsonArray topics = document.object().value(QStringLiteral("topics")).toArray();
     QStringList discovered_names;
     QMap<QString, QString> discovered_types;
-    QVariantList topic_items;
 
     for (const QJsonValue &value : topics) {
         const QJsonObject topic_object = value.toObject();
         const QString name = topic_object.value(QStringLiteral("name")).toString().trimmed();
         const QString type = topic_object.value(QStringLiteral("type")).toString().trimmed();
-        if (name.isEmpty()) {
+        if (!isPerceptionImageTopic(name, type)) {
             continue;
         }
 
         discovered_names.append(name);
         discovered_types.insert(name, type);
-        topic_items.append(name);
     }
-
-    discovered_names.removeDuplicates();
-    discovered_names.sort(Qt::CaseSensitive);
 
     QMetaObject::invokeMethod(
         this,
-        [this, discovered_names, discovered_types, topic_items]()
+        [this, discovered_names, discovered_types]()
         {
-            video_topic_names_ = discovered_names;
-            video_topic_types_ = discovered_types;
-            video_topics_ = topic_items;
-            emit videoTopicsChanged();
+            applyDiscoveredVideoTopics(discovered_names, discovered_types);
         },
         Qt::QueuedConnection);
+}
+
+void RosUiBridge::applyDiscoveredVideoTopics(const QStringList &topicNames, const QMap<QString, QString> &topicTypes)
+{
+    QStringList discovered_names = topicNames;
+    discovered_names.removeDuplicates();
+    discovered_names.sort(Qt::CaseSensitive);
+
+    QMap<QString, QString> discovered_types;
+    QVariantList topic_items;
+    for (const QString &name : discovered_names) {
+        const QString type = topicTypes.value(name);
+        if (!isPerceptionImageTopic(name, type)) {
+            continue;
+        }
+        discovered_types.insert(name, type);
+        topic_items.append(name);
+    }
+
+    if (video_topic_names_ == discovered_names && video_topic_types_ == discovered_types) {
+        return;
+    }
+
+    video_topic_names_ = discovered_names;
+    video_topic_types_ = discovered_types;
+    video_topics_ = topic_items;
+    emit videoTopicsChanged();
+
+    for (int slot_index = 0; slot_index < kVideoSlotCount; ++slot_index) {
+        auto &slot = video_slots_[static_cast<size_t>(slot_index)];
+        if (!slot.topic.isEmpty() && !video_topic_names_.contains(slot.topic)) {
+            stopVideoSlot(slot_index);
+            slot.topic.clear();
+            slot.topic_type.clear();
+            slot.status = QStringLiteral("No topic selected");
+            emitVideoSlotChanged(slot_index);
+        }
+    }
+
+}
+
+bool RosUiBridge::isPerceptionImageTopic(const QString &topicName, const QString &topicType)
+{
+    return topicName.startsWith(QStringLiteral("/perception"))
+           && (topicType == QString::fromLatin1(kImageType)
+               || topicType == QString::fromLatin1(kCompressedImageType));
 }
 
 void RosUiBridge::handleVideoSlotStatusMessage(int slotIndex, const std_msgs::msg::String::SharedPtr msg)
@@ -740,23 +850,34 @@ void RosUiBridge::startVideoSlot(int slotIndex)
     slot.image_sub.reset();
     slot.compressed_sub.reset();
 
-    const std::string image_topic = (video_topic_namespace_ + QStringLiteral("/slot%1/image").arg(slotIndex)).toStdString();
-    const std::string compressed_topic = (video_topic_namespace_ + QStringLiteral("/slot%1/compressed").arg(slotIndex)).toStdString();
+    if (slot.topic.isEmpty()) {
+        slot.status = QStringLiteral("No topic selected");
+        emitVideoSlotChanged(slotIndex);
+        return;
+    }
+
+    const std::string selected_topic = slot.topic.toStdString();
     const rclcpp::SensorDataQoS qos;
 
     slot.status = QStringLiteral("Waiting for video frame");
-    slot.image_sub = node_->create_subscription<sensor_msgs::msg::Image>(
-        image_topic, qos,
-        [this, slotIndex](const sensor_msgs::msg::Image::SharedPtr msg)
-        {
-            imageCallback(slotIndex, msg);
-        });
-    slot.compressed_sub = node_->create_subscription<sensor_msgs::msg::CompressedImage>(
-        compressed_topic, qos,
-        [this, slotIndex](const sensor_msgs::msg::CompressedImage::SharedPtr msg)
-        {
-            compressedImageCallback(slotIndex, msg);
-        });
+
+    if (slot.topic_type == QString::fromLatin1(kImageType) || slot.topic_type.isEmpty()) {
+        slot.image_sub = node_->create_subscription<sensor_msgs::msg::Image>(
+            selected_topic, qos,
+            [this, slotIndex](const sensor_msgs::msg::Image::SharedPtr msg)
+            {
+                imageCallback(slotIndex, msg);
+            });
+    }
+
+    if (slot.topic_type == QString::fromLatin1(kCompressedImageType) || slot.topic_type.isEmpty()) {
+        slot.compressed_sub = node_->create_subscription<sensor_msgs::msg::CompressedImage>(
+            selected_topic, qos,
+            [this, slotIndex](const sensor_msgs::msg::CompressedImage::SharedPtr msg)
+            {
+                compressedImageCallback(slotIndex, msg);
+            });
+    }
 
     emitVideoSlotChanged(slotIndex);
 }
@@ -840,7 +961,13 @@ void RosUiBridge::emitVideoSlotChanged(int slotIndex)
         emit videoSlot0Changed();
     } else if (slotIndex == 1) {
         emit videoSlot1Changed();
+    } else if (slotIndex == 2) {
+        emit videoSlot2Changed();
+    } else if (slotIndex == 3) {
+        emit videoSlot3Changed();
     }
+
+    emit videoSlotsChanged();
 }
 
 QImage RosUiBridge::imageMessageToQImage(const sensor_msgs::msg::Image &msg, QString *errorMessage)

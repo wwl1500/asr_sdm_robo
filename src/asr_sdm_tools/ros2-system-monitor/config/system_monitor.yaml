@@ -33,13 +33,3 @@ net_monitor:
     enable_net_monitor: true
     net_level_warn: 0.95
     net_capacity: 128.0
-video_monitor:
-  ros__parameters:
-    enable_video_monitor: true
-    input_topic_prefix: /perception
-    relay_topic_namespace: /system_monitor/video
-    max_slots: 2
-    discovery_period: 1.0
-    status_period: 1.0
-    no_frame_warn_sec: 3.0
-

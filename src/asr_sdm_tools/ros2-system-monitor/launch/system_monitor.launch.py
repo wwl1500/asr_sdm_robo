@@ -59,7 +59,6 @@ def _load_enable_settings(config_path):
         "enable_mem_monitor": True,
         "enable_net_monitor": True,
         "enable_ntp_monitor": False,
-        "enable_video_monitor": True,
     }
 
     try:
@@ -74,7 +73,6 @@ def _load_enable_settings(config_path):
         "enable_mem_monitor": "mem_monitor",
         "enable_net_monitor": "net_monitor",
         "enable_ntp_monitor": "ntp_monitor",
-        "enable_video_monitor": "video_monitor",
     }
 
     resolved = {}
@@ -132,23 +130,8 @@ def _create_monitor_nodes(context):
         emulate_tty=True,
         condition=IfCondition(enable_settings["enable_ntp_monitor"]),
     )
-    video_monitor = Node(
-        package="ros2_system_monitor",
-        executable="video_monitor_node.py",
-        parameters=[LaunchConfiguration("system_monitor_config_file")],
-        respawn=True,
-        emulate_tty=True,
-        condition=IfCondition(enable_settings["enable_video_monitor"]),
-    )
 
-    return [
-        cpu_monitor,
-        hdd_monitor,
-        mem_monitor,
-        net_monitor,
-        ntp_monitor,
-        video_monitor,
-    ]
+    return [cpu_monitor, hdd_monitor, mem_monitor, net_monitor, ntp_monitor]
 
 def generate_launch_description():
     config_file_default = os.path.join(

@@ -21,7 +21,6 @@
   <exec_depend>diagnostic_updater</exec_depend>
   <exec_depend>diagnostic_msgs</exec_depend>
   <exec_depend>std_msgs</exec_depend>
-  <exec_depend>sensor_msgs</exec_depend>
   <exec_depend>sysstat</exec_depend>      <!-- Provides system statistics tools (e.g., iostat, mpstat) -->
   <exec_depend>lm-sensors</exec_depend>    <!-- Provides sensor information (e.g., temperature) -->
   <exec_depend>ifstat</exec_depend>        <!-- Provides network interface statistics -->
