@@ -7,6 +7,7 @@ Rectangle {
     property bool selected: false
     property var appPalette
     property int radiusValue: 10
+    property int labelPixelSize: 16
     signal clicked
 
     radius: radiusValue
@@ -22,7 +23,7 @@ Rectangle {
         horizontalAlignment: Text.AlignHCenter
         elide: Text.ElideRight
         text: root.label
-        font.pixelSize: 16
+        font.pixelSize: root.labelPixelSize
         font.bold: root.selected
         color: root.selected ? appPalette.accentText : appPalette.textPrimary
     }

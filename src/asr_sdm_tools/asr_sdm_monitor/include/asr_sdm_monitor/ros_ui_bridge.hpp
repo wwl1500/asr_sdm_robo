@@ -6,6 +6,7 @@
 #include <QString>
 #include <QStringList>
 #include <QVariant>
+#include <QVariantMap>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <array>
@@ -45,12 +46,19 @@ class RosUiBridge : public QObject
     Q_PROPERTY(QVariantList ntpRows READ ntpRows NOTIFY ntpRowsChanged)
 
     Q_PROPERTY(QVariantList videoTopics READ videoTopics NOTIFY videoTopicsChanged)
+    Q_PROPERTY(QVariantList videoSlots READ videoSlots NOTIFY videoSlotsChanged)
     Q_PROPERTY(QString videoTopic0 READ videoTopic0 NOTIFY videoSlot0Changed)
     Q_PROPERTY(QString videoTopic1 READ videoTopic1 NOTIFY videoSlot1Changed)
+    Q_PROPERTY(QString videoTopic2 READ videoTopic2 NOTIFY videoSlot2Changed)
+    Q_PROPERTY(QString videoTopic3 READ videoTopic3 NOTIFY videoSlot3Changed)
     Q_PROPERTY(QString videoStatus0 READ videoStatus0 NOTIFY videoSlot0Changed)
     Q_PROPERTY(QString videoStatus1 READ videoStatus1 NOTIFY videoSlot1Changed)
+    Q_PROPERTY(QString videoStatus2 READ videoStatus2 NOTIFY videoSlot2Changed)
+    Q_PROPERTY(QString videoStatus3 READ videoStatus3 NOTIFY videoSlot3Changed)
     Q_PROPERTY(int videoFrame0Revision READ videoFrame0Revision NOTIFY videoSlot0Changed)
     Q_PROPERTY(int videoFrame1Revision READ videoFrame1Revision NOTIFY videoSlot1Changed)
+    Q_PROPERTY(int videoFrame2Revision READ videoFrame2Revision NOTIFY videoSlot2Changed)
+    Q_PROPERTY(int videoFrame3Revision READ videoFrame3Revision NOTIFY videoSlot3Changed)
 
 public:
     explicit RosUiBridge(QObject *parent = nullptr);
@@ -78,15 +86,21 @@ public:
     QVariantList ntpRows() const;
 
     QVariantList videoTopics() const;
+    QVariantList videoSlots() const;
     QString videoTopic0() const;
     QString videoTopic1() const;
+    QString videoTopic2() const;
+    QString videoTopic3() const;
     QString videoStatus0() const;
     QString videoStatus1() const;
+    QString videoStatus2() const;
+    QString videoStatus3() const;
     int videoFrame0Revision() const;
     int videoFrame1Revision() const;
+    int videoFrame2Revision() const;
+    int videoFrame3Revision() const;
     QImage videoFrameImage(int slotIndex) const;
 
-    Q_INVOKABLE void refreshVideoTopics();
     Q_INVOKABLE void setVideoTopic(int slotIndex, const QString &topicName);
 
 signals:
@@ -112,8 +126,11 @@ signals:
     void ntpRowsChanged();
 
     void videoTopicsChanged();
+    void videoSlotsChanged();
     void videoSlot0Changed();
     void videoSlot1Changed();
+    void videoSlot2Changed();
+    void videoSlot3Changed();
 
 private:
     void diagnosticsCallback(const diagnostic_msgs::msg::DiagnosticArray::SharedPtr msg);
@@ -133,6 +150,8 @@ private:
     void handleVideoTopicsMessage(const std_msgs::msg::String::SharedPtr msg);
     void handleVideoSlotStatusMessage(int slotIndex, const std_msgs::msg::String::SharedPtr msg);
     void publishVideoSelection(int slotIndex, const QString &topicName);
+    void discoverVideoTopics();
+    void applyDiscoveredVideoTopics(const QStringList &topicNames, const QMap<QString, QString> &topicTypes);
     void stopVideoSlot(int slotIndex);
     void startVideoSlot(int slotIndex);
     void imageCallback(int slotIndex, const sensor_msgs::msg::Image::SharedPtr msg);
@@ -141,6 +160,7 @@ private:
     void updateVideoStatus(int slotIndex, const QString &status);
     void emitVideoSlotChanged(int slotIndex);
 
+    static bool isPerceptionImageTopic(const QString &topicName, const QString &topicType);
     static QImage imageMessageToQImage(const sensor_msgs::msg::Image &msg, QString *errorMessage);
 
     struct VideoSlot {
@@ -178,13 +198,14 @@ private:
     QStringList video_topic_names_;
     QMap<QString, QString> video_topic_types_;
     QString video_topic_namespace_ = QStringLiteral("/system_monitor/video");
-    std::array<VideoSlot, 2> video_slots_;
+    std::array<VideoSlot, 4> video_slots_;
     mutable std::mutex video_frame_mutex_;
 
     rclcpp::Node::SharedPtr node_;
     rclcpp::Subscription<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diagnostics_sub_;
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr video_topics_sub_;
-    std::array<rclcpp::Subscription<std_msgs::msg::String>::SharedPtr, 2> video_status_subs_;
+    rclcpp::TimerBase::SharedPtr video_topic_discovery_timer_;
+    std::array<rclcpp::Subscription<std_msgs::msg::String>::SharedPtr, 4> video_status_subs_;
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr video_select_pub_;
     std::unique_ptr<rclcpp::executors::SingleThreadedExecutor> executor_;
     std::thread ros_thread_;

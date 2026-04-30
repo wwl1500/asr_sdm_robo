@@ -17,15 +17,16 @@ Rectangle {
 
     Column {
         anchors.fill: parent
-        anchors.margins: 20
-        spacing: 14
+        anchors.margins: Math.max(8, Math.min(20, root.width * 0.08))
+        spacing: root.width < 150 ? 8 : 14
 
         SelectableButton {
             label: I18n.t(root.language, "hardware")
             selected: root.currentSection === 0
             appPalette: root.appPalette
             implicitWidth: parent.width
-            implicitHeight: 56
+            implicitHeight: root.width < 150 ? 46 : 56
+            labelPixelSize: root.width < 150 ? 13 : 16
             onClicked: root.sectionSelected(0)
         }
 
@@ -34,7 +35,8 @@ Rectangle {
             selected: root.currentSection === 1
             appPalette: root.appPalette
             implicitWidth: parent.width
-            implicitHeight: 56
+            implicitHeight: root.width < 150 ? 46 : 56
+            labelPixelSize: root.width < 150 ? 13 : 16
             onClicked: root.sectionSelected(1)
         }
     }

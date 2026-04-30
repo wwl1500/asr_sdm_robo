@@ -20,7 +20,6 @@ install(PROGRAMS
   scripts/mem_monitor_node.py
   scripts/net_monitor_node.py
   scripts/ntp_monitor_node.py
-  scripts/video_monitor_node.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

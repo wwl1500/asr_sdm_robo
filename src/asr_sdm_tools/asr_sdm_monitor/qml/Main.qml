@@ -251,7 +251,9 @@ ApplicationWindow {
             spacing: 0
 
             SidebarMenu {
-                Layout.preferredWidth: 240
+                Layout.minimumWidth: 96
+                Layout.preferredWidth: Math.max(120, Math.min(240, window.width * 0.16))
+                Layout.maximumWidth: 240
                 Layout.fillHeight: true
                 appPalette: window.appPalette
                 language: window.currentLanguage
