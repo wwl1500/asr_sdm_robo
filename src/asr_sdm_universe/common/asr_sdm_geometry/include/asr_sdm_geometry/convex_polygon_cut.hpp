@@ -5,6 +5,8 @@
 #include "cross_point_ll.hpp"
 #include "polygon.hpp"
 
+namespace asr
+{
 namespace geometry
 {
 
@@ -26,5 +28,6 @@ inline Polygon convex_polygon_cut(const Polygon & U, const Line & l)
 }
 
 }  // namespace geometry
+}  // namespace asr
 
 #endif  // CONVEX_POLYGON_CUT_HPP_

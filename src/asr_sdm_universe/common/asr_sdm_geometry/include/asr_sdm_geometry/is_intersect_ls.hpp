@@ -5,6 +5,8 @@
 #include "line.hpp"
 #include "segment.hpp"
 
+namespace asr
+{
 namespace geometry
 {
 
@@ -15,5 +17,6 @@ inline bool is_intersect_ls(const Line & l, const Segment & s)
 }
 
 }  // namespace geometry
+}  // namespace asr
 
 #endif  // IS_INTERSECT_LS_HPP_

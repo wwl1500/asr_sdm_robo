@@ -4,6 +4,8 @@
 
 #include "line.hpp"
 
+namespace asr
+{
 namespace geometry
 {
 
@@ -16,5 +18,6 @@ inline Point cross_point_ll(const Line & l, const Line & m)
 }
 
 }  // namespace geometry
+}  // namespace asr
 
 #endif  // CROSS_POINT_LL_HPP_

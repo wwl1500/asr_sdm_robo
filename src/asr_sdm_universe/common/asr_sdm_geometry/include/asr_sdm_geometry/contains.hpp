@@ -4,6 +4,8 @@
 
 #include "polygon.hpp"
 
+namespace asr
+{
 namespace geometry
 {
 
@@ -24,5 +26,6 @@ inline int contains(const Polygon & Q, const Point & p)
 }
 
 }  // namespace geometry
+}  // namespace asr
 
 #endif  // CONTAINS_HPP_

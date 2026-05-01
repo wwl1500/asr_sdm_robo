@@ -6,6 +6,8 @@
 #include "projection.hpp"
 #include "segment.hpp"
 
+namespace asr
+{
 namespace geometry
 {
 
@@ -17,5 +19,6 @@ inline Real distance_sp(const Segment & s, const Point & p)
 }
 
 }  // namespace geometry
+}  // namespace asr
 
 #endif  // DISTANCE_SP_HPP_

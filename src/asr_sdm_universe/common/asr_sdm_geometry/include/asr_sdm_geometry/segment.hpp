@@ -4,6 +4,8 @@
 
 #include "line.hpp"
 
+namespace asr
+{
 namespace geometry
 {
 
@@ -16,5 +18,6 @@ struct Segment : Line
 using Segments = vector<Segment>;
 
 }  // namespace geometry
+}  // namespace asr
 
 #endif  // SEGMENT_HPP_

@@ -4,6 +4,8 @@
 
 #include "line.hpp"
 
+namespace asr
+{
 namespace geometry
 {
 
@@ -15,5 +17,6 @@ inline Point projection(const Line & l, const Point & p)
 }
 
 }  // namespace geometry
+}  // namespace asr
 
 #endif  // PROJECTION_HPP_

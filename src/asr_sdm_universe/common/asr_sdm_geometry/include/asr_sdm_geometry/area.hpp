@@ -4,6 +4,8 @@
 
 #include "polygon.hpp"
 
+namespace asr
+{
 namespace geometry
 {
 
@@ -20,5 +22,6 @@ inline Real area(const Polygon & p)
 }
 
 }  // namespace geometry
+}  // namespace asr
 
 #endif  // AREA_HPP_

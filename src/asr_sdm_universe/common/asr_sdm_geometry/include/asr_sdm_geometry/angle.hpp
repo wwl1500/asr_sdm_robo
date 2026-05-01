@@ -4,6 +4,8 @@
 
 #include "point.hpp"
 
+namespace asr
+{
 namespace geometry
 {
 
@@ -23,5 +25,6 @@ inline Real get_smaller_angle(const Point & a, const Point & b, const Point & c)
 }
 
 }  // namespace geometry
+}  // namespace asr
 
 #endif  // ANGLE_HPP_

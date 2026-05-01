@@ -5,6 +5,8 @@
 #include "is_parallel.hpp"
 #include "line.hpp"
 
+namespace asr
+{
 namespace geometry
 {
 
@@ -17,5 +19,6 @@ inline bool is_intersect_ll(const Line & l, const Line & m)
 }
 
 }  // namespace geometry
+}  // namespace asr
 
 #endif  // IS_INTERSECT_LL_HPP_

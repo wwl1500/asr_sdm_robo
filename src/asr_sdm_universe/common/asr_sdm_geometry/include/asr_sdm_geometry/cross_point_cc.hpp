@@ -4,6 +4,8 @@
 
 #include "circle.hpp"
 
+namespace asr
+{
 namespace geometry
 {
 
@@ -24,5 +26,6 @@ inline Points cross_point_cc(const Circle & c1, const Circle & c2)
 }
 
 }  // namespace geometry
+}  // namespace asr
 
 #endif  // CROSS_POINT_CC_HPP_

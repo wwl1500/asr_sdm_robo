@@ -6,6 +6,8 @@
 #include "is_intersect_cs.hpp"
 #include "segment.hpp"
 
+namespace asr
+{
 namespace geometry
 {
 
@@ -20,5 +22,6 @@ inline Points cross_point_cs(const Circle & c, const Segment & s)
 }
 
 }  // namespace geometry
+}  // namespace asr
 
 #endif  // CROSS_POINT_CS_HPP_

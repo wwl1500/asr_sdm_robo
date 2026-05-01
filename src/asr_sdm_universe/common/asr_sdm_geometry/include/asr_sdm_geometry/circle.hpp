@@ -4,6 +4,8 @@
 
 #include "point.hpp"
 
+namespace asr
+{
 namespace geometry
 {
 
@@ -19,5 +21,6 @@ struct Circle
 using Circles = vector<Circle>;
 
 }  // namespace geometry
+}  // namespace asr
 
 #endif  // CIRCLE_HPP_

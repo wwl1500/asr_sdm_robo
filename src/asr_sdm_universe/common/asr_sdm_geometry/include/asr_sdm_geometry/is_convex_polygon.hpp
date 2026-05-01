@@ -5,6 +5,8 @@
 #include "ccw.hpp"
 #include "polygon.hpp"
 
+namespace asr
+{
 namespace geometry
 {
 
@@ -19,5 +21,6 @@ inline bool is_convex_polygon(const Polygon & p)
 }
 
 }  // namespace geometry
+}  // namespace asr
 
 #endif  // IS_CONVEX_POLYGON_HPP_

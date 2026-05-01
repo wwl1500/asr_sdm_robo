@@ -4,6 +4,8 @@
 
 #include "polygon.hpp"
 
+namespace asr
+{
 namespace geometry
 {
 
@@ -37,5 +39,6 @@ inline int convex_polygon_contains(const Polygon & Q, const Point & p)
 }
 
 }  // namespace geometry
+}  // namespace asr
 
 #endif  // CONVEX_POLYGON_CONTAINS_HPP_

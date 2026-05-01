@@ -6,6 +6,8 @@
 #include "projection.hpp"
 #include "segment.hpp"
 
+namespace asr
+{
 namespace geometry
 {
 
@@ -25,5 +27,6 @@ inline int is_intersect_cs(const Circle & c, const Segment & l)
 }
 
 }  // namespace geometry
+}  // namespace asr
 
 #endif  // IS_INTERSECT_CS_HPP_

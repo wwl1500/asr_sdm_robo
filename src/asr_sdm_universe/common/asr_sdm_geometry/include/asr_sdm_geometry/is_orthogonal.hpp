@@ -4,6 +4,8 @@
 
 #include "line.hpp"
 
+namespace asr
+{
 namespace geometry
 {
 
@@ -14,5 +16,6 @@ inline bool is_orthogonal(const Line & a, const Line & b)
 }
 
 }  // namespace geometry
+}  // namespace asr
 
 #endif  // IS_ORTHOGONAL_HPP_

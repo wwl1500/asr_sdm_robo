@@ -5,6 +5,8 @@
 #include "distance_sp.hpp"
 #include "is_intersect_ss.hpp"
 
+namespace asr
+{
 namespace geometry
 {
 
@@ -17,5 +19,6 @@ inline Real distance_ss(const Segment & a, const Segment & b)
 }
 
 }  // namespace geometry
+}  // namespace asr
 
 #endif  // DISTANCE_SS_HPP_

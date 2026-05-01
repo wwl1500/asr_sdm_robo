@@ -4,6 +4,8 @@
 
 #include "point.hpp"
 
+namespace asr
+{
 namespace geometry
 {
 
@@ -28,5 +30,6 @@ inline int ccw(const Point & a, Point b, Point c)
 }
 
 }  // namespace geometry
+}  // namespace asr
 
 #endif  // CCW_HPP_

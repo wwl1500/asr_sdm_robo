@@ -6,6 +6,8 @@
 #include "distance_lp.hpp"
 #include "line.hpp"
 
+namespace asr
+{
 namespace geometry
 {
 
@@ -15,5 +17,6 @@ inline bool is_intersect_cl(const Circle & c, const Line & l)
 }
 
 }  // namespace geometry
+}  // namespace asr
 
 #endif  // IS_INTERSECT_CL_HPP_

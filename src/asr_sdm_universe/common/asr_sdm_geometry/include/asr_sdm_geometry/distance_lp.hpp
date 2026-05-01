@@ -4,6 +4,8 @@
 
 #include "projection.hpp"
 
+namespace asr
+{
 namespace geometry
 {
 
@@ -13,5 +15,6 @@ inline Real distance_lp(const Line & l, const Point & p)
 }
 
 }  // namespace geometry
+}  // namespace asr
 
 #endif  // DISTANCE_LP_HPP_

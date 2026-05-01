@@ -4,6 +4,8 @@
 
 #include "base.hpp"
 
+namespace asr
+{
 namespace geometry
 {
 
@@ -109,5 +111,6 @@ inline bool compare_z(const Point & a, const Point & b)
 using Points = vector<Point>;
 
 }  // namespace geometry
+}  // namespace asr
 
 #endif  // POINT_HPP_

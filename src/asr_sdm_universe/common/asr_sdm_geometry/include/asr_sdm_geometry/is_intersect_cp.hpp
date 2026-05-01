@@ -4,6 +4,8 @@
 
 #include "circle.hpp"
 
+namespace asr
+{
 namespace geometry
 {
 
@@ -13,5 +15,6 @@ inline bool is_intersect_cp(const Circle & c, const Point & p)
 }
 
 }  // namespace geometry
+}  // namespace asr
 
 #endif  // IS_INTERSECT_CP_HPP_

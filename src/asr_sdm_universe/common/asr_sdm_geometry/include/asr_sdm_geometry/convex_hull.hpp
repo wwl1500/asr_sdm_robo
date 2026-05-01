@@ -4,6 +4,8 @@
 
 #include "polygon.hpp"
 
+namespace asr
+{
 namespace geometry
 {
 
@@ -32,5 +34,6 @@ inline Polygon convex_hull(Polygon & p, bool strict = true)
 }
 
 }  // namespace geometry
+}  // namespace asr
 
 #endif  // CONVEX_HULL_HPP_

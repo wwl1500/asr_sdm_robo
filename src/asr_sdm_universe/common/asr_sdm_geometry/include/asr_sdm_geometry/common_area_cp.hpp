@@ -7,6 +7,8 @@
 #include "is_intersect_cs.hpp"
 #include "polygon.hpp"
 
+namespace asr
+{
 namespace geometry
 {
 
@@ -58,5 +60,6 @@ inline Real common_area_cp(const Circle & c, const Polygon & p)
 }
 
 }  // namespace geometry
+}  // namespace asr
 
 #endif  // COMMON_AREA_CP_HPP_

@@ -4,6 +4,8 @@
 
 #include "polygon.hpp"
 
+namespace asr
+{
 namespace geometry
 {
 
@@ -41,5 +43,6 @@ inline pair<int, int> convex_polygon_diameter(const Polygon & p)
 }
 
 }  // namespace geometry
+}  // namespace asr
 
 #endif  // CONVEX_POLYGON_DIAMETER_HPP_

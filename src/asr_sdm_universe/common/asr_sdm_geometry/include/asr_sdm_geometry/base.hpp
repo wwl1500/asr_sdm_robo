@@ -9,6 +9,8 @@
 #include <utility>
 #include <vector>
 
+namespace asr
+{
 namespace geometry
 {
 
@@ -47,5 +49,6 @@ using std::swap;
 using std::vector;
 
 }  // namespace geometry
+}  // namespace asr
 
 #endif  // BASE_HPP_
