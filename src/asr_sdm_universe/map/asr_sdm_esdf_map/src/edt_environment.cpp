@@ -32,8 +32,8 @@ void EDTEnvironment::init() {
 }
 
 void EDTEnvironment::setMap(shared_ptr<SDFMap> map) {
-  this->sdf_map_ = map;
-  resolution_inv_ = 1 / sdf_map_->getResolution();
+  this->esdf_map_ = map;
+  resolution_inv_ = 1 / esdf_map_->getResolution();
 }
 
 void EDTEnvironment::setObjPrediction(ObjPrediction prediction) {
@@ -75,7 +75,7 @@ void EDTEnvironment::getSurroundDistance(Eigen::Vector3d pts[2][2][2], double di
   for (int x = 0; x < 2; x++) {
     for (int y = 0; y < 2; y++) {
       for (int z = 0; z < 2; z++) {
-        dists[x][y][z] = sdf_map_->getDistance(pts[x][y][z]);
+        dists[x][y][z] = esdf_map_->getDistance(pts[x][y][z]);
       }
     }
   }
@@ -109,7 +109,7 @@ void EDTEnvironment::evaluateEDTWithGrad(const Eigen::Vector3d& pos,
                                          Eigen::Vector3d& grad) {
   Eigen::Vector3d diff;
   Eigen::Vector3d sur_pts[2][2][2];
-  sdf_map_->getSurroundPts(pos, sur_pts, diff);
+  esdf_map_->getSurroundPts(pos, sur_pts, diff);
 
   double dists[2][2][2];
   getSurroundDistance(sur_pts, dists);
@@ -118,7 +118,7 @@ void EDTEnvironment::evaluateEDTWithGrad(const Eigen::Vector3d& pos,
 }
 
 double EDTEnvironment::evaluateCoarseEDT(Eigen::Vector3d& pos, double time) {
-  double d1 = sdf_map_->getDistance(pos);
+  double d1 = esdf_map_->getDistance(pos);
   if (time < 0.0) {
     return d1;
   } else {

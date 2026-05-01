@@ -22,7 +22,7 @@ find_package(OpenCV REQUIRED)
 find_package(Eigen3 REQUIRED)
 
 add_library(asr_sdm_esdf_map SHARED
-  src/sdf_map.cpp
+  src/esdf_map.cpp
   src/obj_predictor.cpp
   src/edt_environment.cpp
   src/raycast.cpp
@@ -58,15 +58,15 @@ add_executable(obj_generator
   src/obj_generator.cpp
 )
 
-add_executable(sdf_map_node
-  src/sdf_map_node.cpp
+add_executable(esdf_map_node
+  src/esdf_map_node.cpp
 )
 
 target_include_directories(obj_generator PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-target_include_directories(sdf_map_node PRIVATE
+target_include_directories(esdf_map_node PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
@@ -77,15 +77,15 @@ ament_target_dependencies(obj_generator
   visualization_msgs
 )
 
-ament_target_dependencies(sdf_map_node
+ament_target_dependencies(esdf_map_node
   rclcpp
 )
 
-target_link_libraries(sdf_map_node
+target_link_libraries(esdf_map_node
   asr_sdm_esdf_map
 )
 
-install(TARGETS asr_sdm_esdf_map obj_generator sdf_map_node
+install(TARGETS asr_sdm_esdf_map obj_generator esdf_map_node
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib

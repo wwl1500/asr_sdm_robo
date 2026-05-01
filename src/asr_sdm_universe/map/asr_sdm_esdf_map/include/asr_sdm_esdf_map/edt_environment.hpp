@@ -31,7 +31,7 @@
 #include <utility>
 
 #include <asr_sdm_esdf_map/obj_predictor.hpp>
-#include <asr_sdm_esdf_map/sdf_map.hpp>
+#include <asr_sdm_esdf_map/esdf_map.hpp>
 
 namespace fast_planner {
 class EDTEnvironment {
@@ -49,7 +49,7 @@ public:
   ~EDTEnvironment() {
   }
 
-  SDFMap::Ptr sdf_map_;
+  SDFMap::Ptr esdf_map_;
 
   void init();
   void setMap(SDFMap::Ptr map);
@@ -62,7 +62,7 @@ public:
                            double& dist, Eigen::Vector3d& grad);
   double evaluateCoarseEDT(Eigen::Vector3d& pos, double time);
   void getMapRegion(Eigen::Vector3d& ori, Eigen::Vector3d& size) {
-    sdf_map_->getRegion(ori, size);
+    esdf_map_->getRegion(ori, size);
   }
 
   typedef std::shared_ptr<EDTEnvironment> Ptr;

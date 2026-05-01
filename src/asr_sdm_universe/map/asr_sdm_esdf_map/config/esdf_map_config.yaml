@@ -1,0 +1,46 @@
+esdf_map:
+  ros__parameters:
+    esdf_map.resolution: -1.0
+    esdf_map.map_size_x: -1.0
+    esdf_map.map_size_y: -1.0
+    esdf_map.map_size_z: -1.0
+
+    esdf_map.local_update_range_x: -1.0
+    esdf_map.local_update_range_y: -1.0
+    esdf_map.local_update_range_z: -1.0
+    esdf_map.obstacles_inflation: -1.0
+
+    esdf_map.fx: -1.0
+    esdf_map.fy: -1.0
+    esdf_map.cx: -1.0
+    esdf_map.cy: -1.0
+
+    esdf_map.use_depth_filter: true
+    esdf_map.depth_filter_tolerance: -1.0
+    esdf_map.depth_filter_maxdist: -1.0
+    esdf_map.depth_filter_mindist: -1.0
+    esdf_map.depth_filter_margin: -1
+    esdf_map.k_depth_scaling_factor: -1.0
+    esdf_map.skip_pixel: -1
+
+    esdf_map.p_hit: 0.7
+    esdf_map.p_miss: 0.35
+    esdf_map.p_min: 0.12
+    esdf_map.p_max: 0.97
+    esdf_map.p_occ: 0.8
+
+    esdf_map.min_ray_length: -0.1
+    esdf_map.max_ray_length: -0.1
+
+    esdf_map.esdf_slice_height: -0.1
+    esdf_map.visualization_truncate_height: -0.1
+    esdf_map.virtual_ceil_height: -0.1
+
+    esdf_map.show_occ_time: false
+    esdf_map.show_esdf_time: false
+    esdf_map.pose_type: 1
+    esdf_map.frame_id: "world"
+
+    esdf_map.local_bound_inflate: 1.0
+    esdf_map.local_map_margin: 1
+    esdf_map.ground_height: 1.0
