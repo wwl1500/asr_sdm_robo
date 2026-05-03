@@ -15,12 +15,12 @@
 namespace enc = sensor_msgs::image_encodings;
 using std::placeholders::_1;
 
-namespace asr_sdm_video_enhancement_ml
+namespace asr
 {
 
 VideoEnhancementMlNode::VideoEnhancementMlNode(const rclcpp::NodeOptions & options)
 : Node("asr_sdm_video_enhancement_ml_node", options),
-  env_(ORT_LOGGING_LEVEL_WARNING, "asr_sdm_video_enhancement_ml"),
+  env_(ORT_LOGGING_LEVEL_WARNING, "asr"),
   session_(nullptr),
   num_threads_(0),
   normalize_output_(true),
@@ -218,12 +218,12 @@ void VideoEnhancementMlNode::logStats(
     frame_count_, callback_fps, inference_fps);
 }
 
-}  // namespace asr_sdm_video_enhancement_ml
+}  // namespace asr
 
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<asr_sdm_video_enhancement_ml::VideoEnhancementMlNode>());
+  rclcpp::spin(std::make_shared<asr::VideoEnhancementMlNode>());
   rclcpp::shutdown();
   return 0;
 }

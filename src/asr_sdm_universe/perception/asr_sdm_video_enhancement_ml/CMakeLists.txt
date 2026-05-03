@@ -35,9 +35,9 @@ if(NOT EXISTS "${ONNXRUNTIME_LIBRARY}")
   message(FATAL_ERROR "ONNX Runtime library not found at ${ONNXRUNTIME_LIBRARY}. Set ONNXRUNTIME_ROOT.")
 endif()
 
-add_executable(asr_sdm_video_enhancement_ml_node cpp_runtime/src/asr_sdm_video_enhancement_ml_node.cpp)
+add_executable(asr_sdm_video_enhancement_ml_node src/asr_sdm_video_enhancement_ml_node.cpp)
 target_include_directories(asr_sdm_video_enhancement_ml_node PRIVATE
-  cpp_runtime/include
+  include
   ${ONNXRUNTIME_INCLUDE_DIR}
   ${OpenCV_INCLUDE_DIRS}
 )

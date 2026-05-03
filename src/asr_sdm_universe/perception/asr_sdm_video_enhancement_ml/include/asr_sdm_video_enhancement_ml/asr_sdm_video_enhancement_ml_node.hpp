@@ -11,7 +11,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/image.hpp>
 
-namespace asr_sdm_video_enhancement_ml
+namespace asr
 {
 
 class VideoEnhancementMlNode : public rclcpp::Node
@@ -46,6 +46,6 @@ private:
   double accumulated_inference_ms_;
 };
 
-}  // namespace asr_sdm_video_enhancement_ml
+}  // namespace asr
 
 #endif  // ASR_SDM_VIDEO_ENHANCEMENT_ML__ASR_SDM_VIDEO_ENHANCEMENT_ML_NODE_HPP_

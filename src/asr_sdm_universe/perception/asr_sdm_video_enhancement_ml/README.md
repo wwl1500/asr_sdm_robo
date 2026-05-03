@@ -7,7 +7,7 @@ https://github.com/ddz16/UIE_Benckmark
 
 ## Layout
 
-- `cpp_runtime/`: C++ ROS 2 node that loads the ONNX model and runs inference.
+- `src/`, `include/`: C++ ROS 2 node that loads the ONNX model and runs inference.
 
 ## Export
 
