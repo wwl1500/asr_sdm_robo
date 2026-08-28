@@ -31,6 +31,21 @@ target_link_libraries(asr_sdm_kinematic_model PUBLIC
   Eigen3::Eigen
 )
 
+add_library(underwater_dynamics STATIC
+  src/underwater_dynamics.cpp
+)
+set_target_properties(underwater_dynamics PROPERTIES
+  POSITION_INDEPENDENT_CODE ON
+)
+target_include_directories(underwater_dynamics PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+target_link_libraries(underwater_dynamics PUBLIC
+  pinocchio::pinocchio
+  Eigen3::Eigen
+)
+
 add_executable(pinocchio_dynamics_node
   src/pinocchio_dynamics_node.cpp
 )
@@ -53,7 +68,7 @@ target_link_libraries(pinocchio_dynamics_node
     ${std_msgs_LIBRARIES}
 )
 
-install(TARGETS asr_sdm_kinematic_model
+install(TARGETS asr_sdm_kinematic_model underwater_dynamics
   EXPORT asr_sdm_kinematic_dynamic_model_targets
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
@@ -107,6 +122,19 @@ if(BUILD_TESTING)
   install(TARGETS asr_sdm_kinematic_model_check
     DESTINATION lib/${PROJECT_NAME}
   )
+
+  find_package(ament_cmake_gtest REQUIRED)
+  ament_add_gtest(test_underwater_dynamics
+    test/test_underwater_dynamics.cpp
+  )
+  if(TARGET test_underwater_dynamics)
+    target_link_libraries(test_underwater_dynamics
+      underwater_dynamics
+      ament_index_cpp::ament_index_cpp
+      pinocchio::pinocchio
+      Eigen3::Eigen
+    )
+  endif()
 
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights

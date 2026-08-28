@@ -14,6 +14,7 @@ def generate_launch_description():
     default_urdf = os.path.join(
         get_package_share_directory("asr_sdm_description"),
         "urdf",
+        "deprecated",
         "underwater_snakerobot.urdf",
     )
 

@@ -35,7 +35,7 @@ public:
     // Parameters allow the node to target different robots / publication rates.
     declare_parameter<std::string>("robot_description_path", "");
     declare_parameter<std::string>("robot_description_package", "asr_sdm_description");
-    declare_parameter<std::string>("robot_description_file", "urdf/underwater_snakerobot.urdf");
+    declare_parameter<std::string>("robot_description_file", "urdf/deprecated/underwater_snakerobot.urdf");
     declare_parameter<bool>("use_free_flyer", true);
     declare_parameter<bool>("log_model_summary", true);
     declare_parameter<int>("publish_period_ms", 200);

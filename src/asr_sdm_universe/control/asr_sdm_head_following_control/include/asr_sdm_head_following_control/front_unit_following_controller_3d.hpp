@@ -5,6 +5,7 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
 
 namespace asr
 {
@@ -43,6 +44,13 @@ struct Mat3
   double v[3][3];
 };
 
+struct HeadCommand3D
+{
+  double linear_velocity;
+  double pitch_rate;
+  double yaw_rate;
+};
+
 struct JointState3D
 {
   // theta[2*j] = yaw, theta[2*j + 1] = pitch
@@ -75,6 +83,30 @@ struct SimulationState3D
   std::array<Vec3, kNum3dLinks> link_axes{};
   std::array<Vec3, kNum3dPoints> body_points{};
 };
+
+struct MeasuredRobotState3D
+{
+  double stamp_sec{0.0};
+  Mat3 tracking_from_head{};
+  JointState3D joints{};
+  uint64_t tracking_frame_epoch{0};
+  bool attitude_valid{true};
+  bool joints_valid{true};
+};
+
+inline HeadCommand3D toHeadCommand3D(const asr_sdm_control_msgs::msg::RobotCommand & cmd)
+{
+  return {cmd.vel.linear.x, cmd.vel.angular.y, cmd.vel.angular.z};
+}
+
+inline MeasuredRobotState3D measuredStateFromSimulation(const SimulationState3D & state)
+{
+  MeasuredRobotState3D measured_state;
+  measured_state.stamp_sec = state.time;
+  measured_state.tracking_from_head = state.head_frame;
+  measured_state.joints = state.joints;
+  return measured_state;
+}
 
 Vec3 operator+(const Vec3 & a, const Vec3 & b);
 Vec3 operator-(const Vec3 & a, const Vec3 & b);
@@ -111,10 +143,14 @@ public:
   explicit FrontUnitFollowingController3D(const FrontUnitController3DParameters & params);
 
   SimulationState3D makeInitialState() const;
+  HeadCommand3D limitCommand(const HeadCommand3D & cmd) const;
   asr_sdm_control_msgs::msg::RobotCommand limitCommand(
     const asr_sdm_control_msgs::msg::RobotCommand & cmd) const;
   JointVelocity3D computeJointVelocity(
+    const HeadCommand3D & cmd, const MeasuredRobotState3D & measured_state) const;
+  JointVelocity3D computeJointVelocity(
     const asr_sdm_control_msgs::msg::RobotCommand & cmd, const SimulationState3D & state) const;
+  JointVelocity3D step(const HeadCommand3D & cmd, double dt, SimulationState3D & state) const;
   JointVelocity3D step(
     const asr_sdm_control_msgs::msg::RobotCommand & cmd, double dt, SimulationState3D & state) const;
 
@@ -126,6 +162,21 @@ private:
     const Vec3 & downstreamAxis, const Vec3 & frontJointVel,
     const Vec3 & upstreamOmega, double lambda) const;
 
+  FrontUnitController3DParameters params_;
+};
+
+class KinematicPlant3D
+{
+public:
+  explicit KinematicPlant3D(const FrontUnitController3DParameters & params);
+
+  SimulationState3D makeInitialState() const;
+  MeasuredRobotState3D measuredState(const SimulationState3D & state) const;
+  void apply(
+    const HeadCommand3D & head_command, const JointVelocity3D & joint_velocity,
+    double dt, SimulationState3D & state) const;
+
+private:
   FrontUnitController3DParameters params_;
 };
 

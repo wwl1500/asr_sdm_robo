@@ -17,7 +17,9 @@ libraries called by those nodes.
 | Package | Responsibility | Main products |
 |---|---|---|
 | [`asr_sdm_head_following_control`](asr_sdm_head_following_control/) | ROS-independent 2D and 3D head-following algorithms | `front_unit_following_controller_2d_core`, `front_unit_following_controller_3d_core` |
-| [`asr_sdm_kinematic_dynamic_model`](asr_sdm_kinematic_dynamic_model/) | Pinocchio kinematic/dynamic model and the retained legacy URDF dynamics utility | `asr_sdm_kinematic_model`, `pinocchio_dynamics_node` |
+| [`asr_sdm_online_path_following_control`](asr_sdm_online_path_following_control/) | Online local-window path following algorithm and optional realtime node | `online_path_following_controller_3d_core`, `realtime_online_path_following_controller_3d` |
+| [`asr_sdm_front_following_control`](asr_sdm_front_following_control/) | Dynamics-based front-following (force/torque) and visualization | `asr_sdm_front_following`, `controller_visualization_node` |
+| [`asr_sdm_kinematic_dynamic_model`](asr_sdm_kinematic_dynamic_model/) | Pinocchio kinematic/dynamic model, underwater hydrodynamics, and the retained legacy URDF dynamics utility | `asr_sdm_kinematic_model`, `underwater_dynamics`, `pinocchio_dynamics_node` |
 | [`asr_sdm_control_manager`](asr_sdm_control_manager/) | ROS 2 topics, parameters, command handling, state integration, and robot-state publication | `asr_sdm_control_manager` |
 
 Production dependencies are one-way:
@@ -26,6 +28,9 @@ Production dependencies are one-way:
 asr_sdm_head_following_control -----------+
                                            +--> asr_sdm_control_manager
 asr_sdm_kinematic_dynamic_model ----------+
+
+asr_sdm_head_following_control --> asr_sdm_online_path_following_control
+asr_sdm_kinematic_dynamic_model --> asr_sdm_front_following_control
 ```
 
 The runtime control path is:
@@ -86,7 +91,9 @@ neutral configuration (or `initial_joint_positions`).
 ### Packages that do not publish
 
 - `asr_sdm_head_following_control`: 2D/3D front-unit following libraries; optional demos are offline plots, not ROS nodes
-- Library part of `asr_sdm_kinematic_dynamic_model`: `AsrSdmKinematicModel`, called directly by the control manager
+- Library part of `asr_sdm_kinematic_dynamic_model`: `AsrSdmKinematicModel` and `UnderwaterDynamics`
+- `asr_sdm_online_path_following_control` library: online path following; the optional realtime node is a separate executable, not the production manager
+- `asr_sdm_front_following_control` library: dynamics inversion; its ROS nodes are a parallel stack, not the production manager
 
 ### Production interfaces
 
@@ -120,8 +127,9 @@ build.
 
 ## 中文
 
-`control` 目录里真正走 ROS topic 的是 2 个节点：`asr_sdm_control_manager` 和
-`pinocchio_dynamics_node`。`asr_sdm_head_following_control` 是算法库，不发 topic。
+`control` 目录里正式控制栈走 ROS topic 的是 `asr_sdm_control_manager` 和
+`pinocchio_dynamics_node`。另外还有两套并行节点：在线路径跟随和动力学前端跟随。
+`asr_sdm_head_following_control` 是算法库，不发 topic。
 
 运行路径：
 
@@ -174,7 +182,9 @@ robot_cmd
 ### 不发布 topic 的包
 
 - `asr_sdm_head_following_control`：2D/3D 前端跟随算法库；可选 demo 是离线绘图，不是 ROS 节点
-- `asr_sdm_kinematic_dynamic_model` 的库部分：`AsrSdmKinematicModel`，被 control manager 直接调用
+- `asr_sdm_kinematic_dynamic_model` 的库部分：`AsrSdmKinematicModel` 和 `UnderwaterDynamics`
+- `asr_sdm_online_path_following_control` 的库部分：在线局部窗口路径跟随
+- `asr_sdm_front_following_control` 的库部分：动力学前端跟随；其 ROS 节点是并行栈
 
 ### 正式栈对外接口（最关键的 3 个）
 

@@ -1,9 +1,11 @@
 # ASR-SDM head-following control
 
 This package contains the 2D and 3D head-following control algorithms. The 3D
-controller uses `asr_sdm_control_msgs/msg/RobotCommand`. The libraries are
-consumed by `asr_sdm_control_manager`; ROS nodes are intentionally kept out of
-this package.
+controller keeps `asr_sdm_control_msgs/msg/RobotCommand` for
+`asr_sdm_control_manager`, and also exposes ROS-independent `HeadCommand3D` /
+`KinematicPlant3D` types used by `asr_sdm_online_path_following_control`. The
+libraries are consumed by those packages; ROS nodes are intentionally kept out
+of this package.
 
 ## Libraries
 

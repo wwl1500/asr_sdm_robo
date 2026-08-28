@@ -1,111 +1,287 @@
 <?xml version="1.0"?>
 
 <!--
-  Base xacro for the Amphibious Snake-like Robot.
-  Converted from the legacy package to use package:// URLs so meshes load
-  correctly from install space in ROS 2.
+  Four-link, three-physical-joint underwater snake robot.
+  Visual design aligned with commit 00d60a2 while preserving the
+  current 4-link naming used by the controller and visualization stack.
 -->
-<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="underwater_snakerobot_description">
-<!--................................. Definition ...................................-->
-  <xacro:property name="pi" value="3.141592654" />
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="underwater_snakerobot_4link">
   <xacro:property name="robot_parts_path" value="package://asr_sdm_description/meshes" />
 
-<!---............................. Link Definitions ................................-->
+  <xacro:property name="link_mass" value="2.0" />
+  <xacro:property name="link_ixx" value="0.015" />
+  <xacro:property name="link_iyy" value="0.015" />
+  <xacro:property name="link_izz" value="0.0036" />
+  <xacro:property name="joint_mass" value="0.001" />
+  <xacro:property name="joint_inertia" value="1e-8" />
+  <xacro:property name="body_radius" value="0.06" />
+  <xacro:property name="body_length" value="0.30" />
+  <xacro:property name="body_half_length" value="0.15" />
+  <xacro:property name="joint_radius" value="0.035" />
+  <xacro:property name="nose_body_length" value="0.25" />
+  <xacro:property name="nose_body_offset" value="-0.025" />
+  <xacro:property name="nose_cone_length" value="0.10" />
+  <xacro:property name="nose_cone_offset" value="0.125" />
+  <xacro:property name="nose_tip_offset" value="0.18" />
+  <xacro:property name="nose_tip_radius" value="0.04" />
+  <xacro:property name="screw_mount_x" value="0.10" />
+  <xacro:property name="screw_mount_y" value="0.07" />
+
+  <material name="link1_color">
+    <color rgba="0.15 0.35 0.65 1.0" />
+  </material>
+  <material name="nose_color">
+    <color rgba="0.10 0.25 0.50 1.0" />
+  </material>
+  <material name="nose_tip_color">
+    <color rgba="0.90 0.20 0.20 1.0" />
+  </material>
+  <material name="link2_color">
+    <color rgba="0.35 0.65 0.40 1.0" />
+  </material>
+  <material name="link3_color">
+    <color rgba="0.75 0.45 0.30 1.0" />
+  </material>
+  <material name="link4_color">
+    <color rgba="0.80 0.60 0.20 1.0" />
+  </material>
+  <material name="joint_color">
+    <color rgba="0.3 0.3 0.3 1.0" />
+  </material>
+
+  <xacro:macro name="standard_inertial">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <mass value="${link_mass}" />
+      <inertia
+        ixx="${link_ixx}" ixy="0" ixz="0"
+        iyy="${link_iyy}" iyz="0"
+        izz="${link_izz}" />
+    </inertial>
+  </xacro:macro>
+
+  <xacro:macro name="joint_inertial">
+    <inertial>
+      <mass value="${joint_mass}" />
+      <inertia
+        ixx="${joint_inertia}" ixy="0" ixz="0"
+        iyy="${joint_inertia}" iyz="0"
+        izz="${joint_inertia}" />
+    </inertial>
+  </xacro:macro>
+
+  <xacro:macro name="body_link" params="name visual_name material_name">
+    <link name="${name}">
+      <xacro:standard_inertial />
+      <visual name="${visual_name}">
+        <origin xyz="0 0 0" rpy="0 ${pi / 2.0} 0" />
+        <geometry>
+          <cylinder radius="${body_radius}" length="${body_length}" />
+        </geometry>
+        <material name="${material_name}" />
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 ${pi / 2.0} 0" />
+        <geometry>
+          <cylinder radius="${body_radius}" length="${body_length}" />
+        </geometry>
+      </collision>
+    </link>
+  </xacro:macro>
+
+  <xacro:macro name="screw_visual_link" params="name mesh_name">
+    <link name="${name}">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 ${pi / 2.0} 0" />
+        <geometry>
+          <mesh filename="${robot_parts_path}/${mesh_name}" />
+        </geometry>
+      </visual>
+    </link>
+  </xacro:macro>
+
+  <xacro:macro name="intermediate_joint_link" params="name visual_name">
+    <link name="${name}">
+      <xacro:joint_inertial />
+      <visual name="${visual_name}">
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <geometry>
+          <sphere radius="${joint_radius}" />
+        </geometry>
+        <material name="joint_color" />
+      </visual>
+    </link>
+  </xacro:macro>
+
   <link name="base_link">
-    <inertial>
-      <mass value="4" />
-      <inertia ixx="4"  ixy="0"  ixz="0" iyy="4" iyz="0" izz="0.0144" />
-    </inertial>
-    <visual>
-      <origin rpy="${pi} 0 ${-pi/2}" xyz="0.0 0.0 0.0"/>
+    <xacro:standard_inertial />
+    <visual name="body1">
+      <origin xyz="${nose_body_offset} 0 0" rpy="0 ${pi / 2.0} 0" />
       <geometry>
-        <mesh filename="${robot_parts_path}/body_2links_head-blender.obj"/>
+        <cylinder radius="${body_radius}" length="${nose_body_length}" />
       </geometry>
+      <material name="link1_color" />
     </visual>
+    <visual name="nose_cone">
+      <origin xyz="${nose_cone_offset} 0 0" rpy="0 ${-pi / 2.0} 0" />
+      <geometry>
+        <cylinder radius="${body_radius}" length="${nose_cone_length}" />
+      </geometry>
+      <material name="nose_color" />
+    </visual>
+    <visual name="nose_tip">
+      <origin xyz="${nose_tip_offset} 0 0" rpy="0 0 0" />
+      <geometry>
+        <sphere radius="${nose_tip_radius}" />
+      </geometry>
+      <material name="nose_tip_color" />
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 ${pi / 2.0} 0" />
+      <geometry>
+        <cylinder radius="${body_radius}" length="${body_length}" />
+      </geometry>
+    </collision>
   </link>
 
-  <link name="screw_1_left">
-    <visual>
-      <origin rpy="${-pi} 0 ${pi/2}" xyz="0.0 0.0 0.0"/>
-      <geometry>
-        <mesh filename="${robot_parts_path}/screw_left_CFD-blender.obj"/>
-      </geometry>
-    </visual>
-  </link>
-  <link name="screw_1_right">
-    <visual>
-      <origin rpy="0 ${pi/2*3} 0" xyz="-0.0 0.0 0.0"/>
-      <geometry>
-        <mesh filename="${robot_parts_path}/screw_right_CFD.dae"/>
-      </geometry>
-    </visual>
-  </link>
+  <xacro:screw_visual_link name="screw_1_left" mesh_name="screw_left_CFD.dae" />
+  <xacro:screw_visual_link name="screw_1_right" mesh_name="screw_right_CFD.dae" />
 
-  <link name="link_2">
-    <inertial>
-      <mass value="4" />
-      <inertia ixx="4"  ixy="0"  ixz="0" iyy="4" iyz="0" izz="0.0144" />
-    </inertial>
-    <visual>
-      <origin rpy="0 0 0" xyz="0.0 0.0 0.0"/>
-      <geometry>
-        <mesh filename="${robot_parts_path}/body_2links.dae"/>
-      </geometry>
-    </visual>
-  </link>
-
-  <link name="screw_2_left" >
-    <visual>
-      <origin rpy="0 ${pi/2*3} 0" xyz="0.0 0.0 0.0"/>
-      <geometry>
-        <mesh filename="${robot_parts_path}/screw_left_CFD.dae"/>
-      </geometry>
-    </visual>
-  </link>
-  <link name="screw_2_right">
-    <visual>
-      <origin rpy="0 ${-pi/2} 0" xyz="-0.0 0.0 0.0"/>
-      <geometry>
-        <mesh filename="${robot_parts_path}/screw_right_CFD.dae"/>
-      </geometry>
-    </visual>
-  </link>
-<!--...........................Joint Definitions.....................................-->
-  <joint name="base_link_to_screw_1_left_joint" type="continuous">
-    <parent link="base_link"/>
-    <child link="screw_1_left"/>
-    <origin rpy="0 ${pi} 0" xyz="0.181 0 0"/>
-    <limit effort="1000.0" lower="-3.14159" upper="3.14159" velocity="10.0"/>
-    <safety_controller k_velocity="10" k_position="5"/>
+  <joint name="link1_to_screw_1_left" type="continuous">
+    <parent link="base_link" />
+    <child link="screw_1_left" />
+    <origin xyz="${screw_mount_x} ${screw_mount_y} 0" rpy="0 0 0" />
+    <axis xyz="1 0 0" />
   </joint>
-  <joint name="base_link_to_screw_1_right_joint" type="continuous">
-    <parent link="base_link"/>
-    <child link="screw_1_right"/>
-    <origin rpy="0 0 0" xyz="0.117 0 0"/>
-    <limit effort="1000.0" lower="-3.14159" upper="3.14159" velocity="10.0"/>
-    <safety_controller k_velocity="10" k_position="5"/>
+  <joint name="link1_to_screw_1_right" type="continuous">
+    <parent link="base_link" />
+    <child link="screw_1_right" />
+    <origin xyz="${screw_mount_x} ${-screw_mount_y} 0" rpy="0 0 0" />
+    <axis xyz="1 0 0" />
   </joint>
 
-  <joint name="base_link_to_link_2" type="continuous">
-    <parent link="base_link"/>
-    <child link="link_2"/>
-    <origin rpy="0 -${pi/2} 0" xyz="0 0 0.0"/>
-    <limit effort="100.0" lower="-1.0" upper="1.0" velocity="10.0"/>
-    <safety_controller k_velocity="20" k_position="20"/>
+  <xacro:intermediate_joint_link name="joint1_intermediate" visual_name="joint1_sphere" />
+
+  <joint name="joint1_pitch" type="revolute">
+    <parent link="base_link" />
+    <child link="joint1_intermediate" />
+    <origin xyz="${-body_half_length} 0 0" rpy="0 0 0" />
+    <axis xyz="0 1 0" />
+    <limit lower="-1.57" upper="1.57" effort="100.0" velocity="10.0" />
+  </joint>
+  <joint name="joint1_yaw" type="revolute">
+    <parent link="joint1_intermediate" />
+    <child link="link_2" />
+    <origin xyz="${-body_half_length} 0 0" rpy="0 0 0" />
+    <axis xyz="0 0 1" />
+    <limit lower="-1.57" upper="1.57" effort="100.0" velocity="10.0" />
   </joint>
 
-  <joint name="link_2_to_screw_2_left_joint" type="continuous">
-    <parent link="link_2"/>
-    <child link="screw_2_left"/>
-    <origin rpy="0 ${pi/2*3} 0" xyz="0 0 0.117"/>
-    <limit effort="1000.0" lower="-3.14159" upper="3.14159" velocity="10.0"/>
-    <safety_controller k_velocity="5" k_position="5"/>
+  <xacro:body_link name="link_2" visual_name="body2" material_name="link2_color" />
+  <xacro:screw_visual_link name="screw_2_left" mesh_name="screw_left_CFD.dae" />
+  <xacro:screw_visual_link name="screw_2_right" mesh_name="screw_right_CFD.dae" />
+
+  <joint name="link2_to_screw_2_left" type="continuous">
+    <parent link="link_2" />
+    <child link="screw_2_left" />
+    <origin xyz="${screw_mount_x} ${screw_mount_y} 0" rpy="0 0 0" />
+    <axis xyz="1 0 0" />
   </joint>
-  <joint name="link_2_to_screw_2_right_joint" type="continuous">
-    <parent link="link_2"/>
-    <child link="screw_2_right"/>
-    <origin rpy="0 ${pi/2} 0" xyz="0 0 0.181"/>
-    <limit effort="1000.0" lower="-3.14159" upper="3.14159" velocity="10.0"/>
-    <safety_controller k_velocity="5" k_position="5"/>
+  <joint name="link2_to_screw_2_right" type="continuous">
+    <parent link="link_2" />
+    <child link="screw_2_right" />
+    <origin xyz="${screw_mount_x} ${-screw_mount_y} 0" rpy="0 0 0" />
+    <axis xyz="1 0 0" />
+  </joint>
+
+  <xacro:intermediate_joint_link name="joint2_intermediate" visual_name="joint2_sphere" />
+
+  <joint name="joint2_pitch" type="revolute">
+    <parent link="link_2" />
+    <child link="joint2_intermediate" />
+    <origin xyz="${-body_half_length} 0 0" rpy="0 0 0" />
+    <axis xyz="0 1 0" />
+    <limit lower="-1.57" upper="1.57" effort="100.0" velocity="10.0" />
+  </joint>
+  <joint name="joint2_yaw" type="revolute">
+    <parent link="joint2_intermediate" />
+    <child link="link_3" />
+    <origin xyz="${-body_half_length} 0 0" rpy="0 0 0" />
+    <axis xyz="0 0 1" />
+    <limit lower="-1.57" upper="1.57" effort="100.0" velocity="10.0" />
+  </joint>
+
+  <xacro:body_link name="link_3" visual_name="body3" material_name="link3_color" />
+  <xacro:screw_visual_link name="screw_3_left" mesh_name="screw_left_CFD.dae" />
+  <xacro:screw_visual_link name="screw_3_right" mesh_name="screw_right_CFD.dae" />
+
+  <joint name="link3_to_screw_3_left" type="continuous">
+    <parent link="link_3" />
+    <child link="screw_3_left" />
+    <origin xyz="${screw_mount_x} ${screw_mount_y} 0" rpy="0 0 0" />
+    <axis xyz="1 0 0" />
+  </joint>
+  <joint name="link3_to_screw_3_right" type="continuous">
+    <parent link="link_3" />
+    <child link="screw_3_right" />
+    <origin xyz="${screw_mount_x} ${-screw_mount_y} 0" rpy="0 0 0" />
+    <axis xyz="1 0 0" />
+  </joint>
+
+  <xacro:intermediate_joint_link name="joint3_intermediate" visual_name="joint3_sphere" />
+
+  <joint name="joint3_pitch" type="revolute">
+    <parent link="link_3" />
+    <child link="joint3_intermediate" />
+    <origin xyz="${-body_half_length} 0 0" rpy="0 0 0" />
+    <axis xyz="0 1 0" />
+    <limit lower="-1.57" upper="1.57" effort="100.0" velocity="10.0" />
+  </joint>
+  <joint name="joint3_yaw" type="revolute">
+    <parent link="joint3_intermediate" />
+    <child link="link_4" />
+    <origin xyz="${-body_half_length} 0 0" rpy="0 0 0" />
+    <axis xyz="0 0 1" />
+    <limit lower="-1.57" upper="1.57" effort="100.0" velocity="10.0" />
+  </joint>
+
+  <link name="link_4">
+    <xacro:standard_inertial />
+    <visual name="body4">
+      <origin xyz="0 0 0" rpy="0 ${pi / 2.0} 0" />
+      <geometry>
+        <cylinder radius="${body_radius}" length="${body_length}" />
+      </geometry>
+      <material name="link4_color" />
+    </visual>
+    <visual name="cap4_rear">
+      <origin xyz="${-body_half_length} 0 0" rpy="0 0 0" />
+      <geometry>
+        <sphere radius="${body_radius}" />
+      </geometry>
+      <material name="link4_color" />
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 ${pi / 2.0} 0" />
+      <geometry>
+        <cylinder radius="${body_radius}" length="${body_length}" />
+      </geometry>
+    </collision>
+  </link>
+
+  <xacro:screw_visual_link name="screw_4_left" mesh_name="screw_left_CFD.dae" />
+  <xacro:screw_visual_link name="screw_4_right" mesh_name="screw_right_CFD.dae" />
+
+  <joint name="link4_to_screw_4_left" type="continuous">
+    <parent link="link_4" />
+    <child link="screw_4_left" />
+    <origin xyz="${screw_mount_x} ${screw_mount_y} 0" rpy="0 0 0" />
+    <axis xyz="1 0 0" />
+  </joint>
+  <joint name="link4_to_screw_4_right" type="continuous">
+    <parent link="link_4" />
+    <child link="screw_4_right" />
+    <origin xyz="${screw_mount_x} ${-screw_mount_y} 0" rpy="0 0 0" />
+    <axis xyz="1 0 0" />
   </joint>
 </robot>

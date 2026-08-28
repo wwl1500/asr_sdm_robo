@@ -181,22 +181,13 @@ FrontUnitFollowingController3D::FrontUnitFollowingController3D(
 
 SimulationState3D FrontUnitFollowingController3D::makeInitialState() const
 {
-  SimulationState3D state;
-  state.time = 0.0;
-  state.head_position = {0.0, 0.0, 0.0};
-  state.head_frame = identityFrame();
-  state.joints.theta.fill(0.0);
-  state.link_frames = linkFrames(state.head_frame, state.joints.theta);
-  state.link_axes = linkAxes(state.link_frames);
-  state.body_points = bodyPoints(state.head_position, state.link_axes, params_.link_length);
-  return state;
+  return KinematicPlant3D(params_).makeInitialState();
 }
 
-asr_sdm_control_msgs::msg::RobotCommand FrontUnitFollowingController3D::limitCommand(
-  const asr_sdm_control_msgs::msg::RobotCommand & cmd) const
+HeadCommand3D FrontUnitFollowingController3D::limitCommand(const HeadCommand3D & cmd) const
 {
-  asr_sdm_control_msgs::msg::RobotCommand limited_cmd = cmd;
-  const double omega = std::hypot(cmd.vel.angular.y, cmd.vel.angular.z);
+  HeadCommand3D limited_cmd = cmd;
+  const double omega = std::hypot(cmd.pitch_rate, cmd.yaw_rate);
   if (omega < 1.0e-12) {
     return limited_cmd;
   }
@@ -204,14 +195,25 @@ asr_sdm_control_msgs::msg::RobotCommand FrontUnitFollowingController3D::limitCom
   const double max_curvature = std::max(0.0, params_.max_curvature);
   const double velocity_epsilon = std::max(std::abs(params_.curvature_velocity_epsilon), 1.0e-12);
   const double omega_limit =
-    max_curvature * std::max(std::abs(cmd.vel.linear.x), velocity_epsilon);
+    max_curvature * std::max(std::abs(cmd.linear_velocity), velocity_epsilon);
   if (omega <= omega_limit) {
     return limited_cmd;
   }
 
   const double scale = omega_limit / omega;
-  limited_cmd.vel.angular.y *= scale;
-  limited_cmd.vel.angular.z *= scale;
+  limited_cmd.pitch_rate *= scale;
+  limited_cmd.yaw_rate *= scale;
+  return limited_cmd;
+}
+
+asr_sdm_control_msgs::msg::RobotCommand FrontUnitFollowingController3D::limitCommand(
+  const asr_sdm_control_msgs::msg::RobotCommand & cmd) const
+{
+  const HeadCommand3D limited = limitCommand(toHeadCommand3D(cmd));
+  asr_sdm_control_msgs::msg::RobotCommand limited_cmd = cmd;
+  limited_cmd.vel.linear.x = limited.linear_velocity;
+  limited_cmd.vel.angular.y = limited.pitch_rate;
+  limited_cmd.vel.angular.z = limited.yaw_rate;
   return limited_cmd;
 }
 
@@ -261,72 +263,119 @@ Vec2 FrontUnitFollowingController3D::computePitchYawRateReference(
 }
 
 JointVelocity3D FrontUnitFollowingController3D::computeJointVelocity(
-  const asr_sdm_control_msgs::msg::RobotCommand & cmd, const SimulationState3D & state) const
+  const HeadCommand3D & cmd, const MeasuredRobotState3D & measured_state) const
 {
-  const asr_sdm_control_msgs::msg::RobotCommand limited_cmd = limitCommand(cmd);
   JointVelocity3D output;
-  const auto frames = linkFrames(state.head_frame, state.joints.theta);
+  if (!measured_state.attitude_valid || !measured_state.joints_valid) {
+    return output;
+  }
+
+  const HeadCommand3D limited_cmd = limitCommand(cmd);
+  const Mat3 head_frame = measured_state.tracking_from_head;
+  const auto frames = linkFrames(head_frame, measured_state.joints.theta);
   const auto axes = linkAxes(frames);
-  const Vec3 head_axis = column(state.head_frame, 0);
-  const Vec3 head_velocity = limited_cmd.vel.linear.x * head_axis;
-  const Vec3 headOmega = limited_cmd.vel.angular.z * column(state.head_frame, 2) +
-    limited_cmd.vel.angular.y * column(state.head_frame, 1);
+  const Vec3 head_velocity = limited_cmd.linear_velocity * column(head_frame, 0);
+  const Vec3 head_omega = limited_cmd.yaw_rate * column(head_frame, 2) +
+    limited_cmd.pitch_rate * column(head_frame, 1);
 
-  std::array<Vec3, kNum3dLinks + 1> jointPointVel{};
-  std::array<Vec3, kNum3dLinks> linkOmega{};
-  jointPointVel[0] = head_velocity;
-  linkOmega[0] = headOmega;
-  jointPointVel[1] = jointPointVel[0] - params_.link_length * cross(linkOmega[0], axes[0]);
+  std::array<Vec3, kNum3dLinks + 1> joint_point_velocity{};
+  std::array<Vec3, kNum3dLinks> link_omega{};
+  joint_point_velocity[0] = head_velocity;
+  link_omega[0] = head_omega;
+  joint_point_velocity[1] = joint_point_velocity[0] -
+    params_.link_length * cross(link_omega[0], axes[0]);
 
-  for (size_t j = 0; j < kNum3dJoints; ++j) {
-    const size_t ds = j + 1;
+  for (size_t joint = 0; joint < kNum3dJoints; ++joint) {
+    const size_t downstream = joint + 1;
     const Vec2 rate = computePitchYawRateReference(
-      frames[ds], state.joints.theta[pitchIndex(j)], axes[ds],
-      jointPointVel[j + 1], linkOmega[j], params_.damping);
-    const double pitchRate = saturate(rate.x, params_.joint_rate_limit);
-    const double yawRate = saturate(rate.y, params_.joint_rate_limit);
-    output.theta_dot[pitchIndex(j)] = -pitchRate;
-    output.theta_dot[yawIndex(j)] = -yawRate;
+      frames[downstream], measured_state.joints.theta[pitchIndex(joint)],
+      axes[downstream], joint_point_velocity[joint + 1], link_omega[joint], params_.damping);
+
+    const double pitch_rate = saturate(rate.x, params_.joint_rate_limit);
+    const double yaw_rate = saturate(rate.y, params_.joint_rate_limit);
+    output.theta_dot[pitchIndex(joint)] = -pitch_rate;
+    output.theta_dot[yawIndex(joint)] = -yaw_rate;
 
     Vec3 jp, jy;
-    pitchYawJacobianColumns(frames[ds], state.joints.theta[pitchIndex(j)], jp, jy);
-    linkOmega[ds] = linkOmega[j] + pitchRate * jp + yawRate * jy;
-    if (ds < kNum3dLinks) {
-      jointPointVel[ds + 1] = jointPointVel[j + 1] -
-        params_.link_length * cross(linkOmega[ds], axes[ds]);
+    pitchYawJacobianColumns(
+      frames[downstream], measured_state.joints.theta[pitchIndex(joint)], jp, jy);
+    link_omega[downstream] = link_omega[joint] + pitch_rate * jp + yaw_rate * jy;
+    if (downstream < kNum3dLinks) {
+      joint_point_velocity[downstream + 1] = joint_point_velocity[joint + 1] -
+        params_.link_length * cross(link_omega[downstream], axes[downstream]);
     }
   }
+  return output;
+}
+
+JointVelocity3D FrontUnitFollowingController3D::computeJointVelocity(
+  const asr_sdm_control_msgs::msg::RobotCommand & cmd, const SimulationState3D & state) const
+{
+  return computeJointVelocity(toHeadCommand3D(cmd), measuredStateFromSimulation(state));
+}
+
+JointVelocity3D FrontUnitFollowingController3D::step(
+  const HeadCommand3D & cmd, double dt, SimulationState3D & state) const
+{
+  const KinematicPlant3D plant(params_);
+  const HeadCommand3D limited_cmd = limitCommand(cmd);
+  const JointVelocity3D output = computeJointVelocity(limited_cmd, plant.measuredState(state));
+  plant.apply(limited_cmd, output, dt, state);
   return output;
 }
 
 JointVelocity3D FrontUnitFollowingController3D::step(
   const asr_sdm_control_msgs::msg::RobotCommand & cmd, double dt, SimulationState3D & state) const
 {
-  const asr_sdm_control_msgs::msg::RobotCommand limited_cmd = limitCommand(cmd);
-  const JointVelocity3D output = computeJointVelocity(limited_cmd, state);
-  const double jointLimit = std::abs(params_.joint_limit);
-  for (size_t joint = 0; joint < kNum3dJoints; ++joint) {
-    state.joints.theta[pitchIndex(joint)] = saturate(
-      state.joints.theta[pitchIndex(joint)] + output.theta_dot[pitchIndex(joint)] * dt,
-      jointLimit);
-    state.joints.theta[yawIndex(joint)] = saturate(
-      state.joints.theta[yawIndex(joint)] + output.theta_dot[yawIndex(joint)] * dt,
-      jointLimit);
+  return step(toHeadCommand3D(cmd), dt, state);
+}
+
+KinematicPlant3D::KinematicPlant3D(const FrontUnitController3DParameters & params)
+: params_(params)
+{
+}
+
+SimulationState3D KinematicPlant3D::makeInitialState() const
+{
+  SimulationState3D state;
+  state.head_frame = identityFrame();
+  state.link_frames = linkFrames(state.head_frame, state.joints.theta);
+  state.link_axes = linkAxes(state.link_frames);
+  state.body_points = bodyPoints(state.head_position, state.link_axes, params_.link_length);
+  return state;
+}
+
+MeasuredRobotState3D KinematicPlant3D::measuredState(const SimulationState3D & state) const
+{
+  return measuredStateFromSimulation(state);
+}
+
+void KinematicPlant3D::apply(
+  const HeadCommand3D & head_command, const JointVelocity3D & joint_velocity,
+  double dt, SimulationState3D & state) const
+{
+  if (!(dt > 0.0) || !std::isfinite(dt)) {
+    return;
   }
 
-  const Vec3 head_axis = column(state.head_frame, 0);
-  const Vec3 head_velocity = limited_cmd.vel.linear.x * head_axis;
+  const Vec3 head_velocity = head_command.linear_velocity * column(state.head_frame, 0);
   state.head_position = state.head_position + head_velocity * dt;
   state.head_frame = orthonormalize(
     multiply(
-      multiply(state.head_frame, rotationZ(limited_cmd.vel.angular.z * dt)),
-      rotationY(limited_cmd.vel.angular.y * dt)));
+      multiply(state.head_frame, rotationZ(head_command.yaw_rate * dt)),
+      rotationY(head_command.pitch_rate * dt)));
+
+  const double joint_limit = std::abs(params_.joint_limit);
+  for (size_t i = 0; i < kNum3dJointDofs; ++i) {
+    const double theta_dot = std::isfinite(joint_velocity.theta_dot[i]) ?
+      saturate(joint_velocity.theta_dot[i], params_.joint_rate_limit) : 0.0;
+    state.joints.theta[i] = saturate(state.joints.theta[i] + theta_dot * dt, joint_limit);
+  }
+
   state.time += dt;
   state.link_frames = linkFrames(state.head_frame, state.joints.theta);
   state.link_axes = linkAxes(state.link_frames);
   state.body_points = bodyPoints(state.head_position, state.link_axes, params_.link_length);
-  return output;
 }
-
 
 }  // namespace asr
