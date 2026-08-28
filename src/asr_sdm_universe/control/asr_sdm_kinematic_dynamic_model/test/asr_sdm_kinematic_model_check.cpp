@@ -1,4 +1,3 @@
-#include "asr_sdm_head_following_control/front_unit_following_controller_3d.hpp"
 #include "asr_sdm_kinematic_dynamic_model/asr_sdm_kinematic_model.hpp"
 
 #include <pinocchio/algorithm/joint-configuration.hpp>
@@ -68,16 +67,6 @@ asr::AsrSdmKinematicModelParameters makeModelParameters()
   return params;
 }
 
-asr::FrontUnitController3DParameters makeControllerParameters(double link_length)
-{
-  asr::FrontUnitController3DParameters params;
-  params.link_length = link_length;
-  params.joint_rate_limit = 2.0;
-  params.joint_limit = 1.5707963267948966;
-  params.max_curvature = 1.2;
-  params.curvature_velocity_epsilon = 1.0e-6;
-  params.damping = 0.02;
-  return params;
 }
 
 Eigen::VectorXd configurationFor(const BodyModel & body_model, const asr::SimulationState3D & state)

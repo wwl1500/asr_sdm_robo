@@ -30,7 +30,8 @@ namespace asr_sdm_kinematic_dynamic_model
 class PinocchioDynamicsNode : public rclcpp::Node
 {
 public:
-  PinocchioDynamicsNode() : Node("pinocchio_dynamics_node")
+  PinocchioDynamicsNode()
+  : Node("pinocchio_dynamics_node")
   {
     // Parameters allow the node to target different robots / publication rates.
     declare_parameter<std::string>("robot_description_path", "");
@@ -68,7 +69,8 @@ private:
         const auto package_share = ament_index_cpp::get_package_share_directory(package_name);
         resolved_urdf = package_share + "/" + relative_path;
       } catch (const std::exception & e) {
-        RCLCPP_FATAL(get_logger(), "Failed to locate package '%s': %s", package_name.c_str(), e.what());
+        RCLCPP_FATAL(get_logger(), "Failed to locate package '%s': %s", package_name.c_str(),
+            e.what());
         return;
       }
     }
@@ -123,8 +125,10 @@ private:
 
   void create_publishers()
   {
-    mass_matrix_pub_ = create_publisher<std_msgs::msg::Float64MultiArray>("pinocchio/mass_matrix", 10);
-    center_of_mass_pub_ = create_publisher<geometry_msgs::msg::Vector3>("pinocchio/center_of_mass", 10);
+    mass_matrix_pub_ = create_publisher<std_msgs::msg::Float64MultiArray>("pinocchio/mass_matrix",
+        10);
+    center_of_mass_pub_ = create_publisher<geometry_msgs::msg::Vector3>("pinocchio/center_of_mass",
+        10);
     total_mass_pub_ = create_publisher<std_msgs::msg::Float64>("pinocchio/total_mass", 10);
   }
 
@@ -203,11 +207,11 @@ int main(int argc, char ** argv)
     auto node = std::make_shared<asr_sdm_kinematic_dynamic_model::PinocchioDynamicsNode>();
     rclcpp::spin(node);
   } catch (const std::exception & e) {
-    RCLCPP_FATAL(rclcpp::get_logger("pinocchio_dynamics_node"), "Unhandled exception: %s", e.what());
+    RCLCPP_FATAL(rclcpp::get_logger("pinocchio_dynamics_node"), "Unhandled exception: %s",
+      e.what());
     rclcpp::shutdown();
     return 1;
   }
   rclcpp::shutdown();
   return 0;
 }
-

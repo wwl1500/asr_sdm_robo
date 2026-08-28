@@ -1,0 +1,99 @@
+#ifndef ASR_SDM_KINEMATIC_DYNAMIC_MODEL_ACTUATOR_MODEL_HPP_
+#define ASR_SDM_KINEMATIC_DYNAMIC_MODEL_ACTUATOR_MODEL_HPP_
+
+#include "asr_sdm_kinematic_dynamic_model/fluid_force_model.hpp"
+#include "asr_sdm_kinematic_dynamic_model/pinocchio_model.hpp"
+#include "asr_sdm_kinematic_dynamic_model/screw_drive_model.hpp"
+
+namespace asr_sdm_kinematic_dynamic_model
+{
+
+using SegmentThrustVector = Eigen::Matrix<double, kNumLinks, 1>;
+using JointTorqueVector = Eigen::Matrix<double, kNumJointDofs, 1>;
+using RotorVector = Eigen::Matrix<double, kNumRotors, 1>;
+
+enum class ActuatorCommandMode
+{
+  /// One aggregate thrust per segment, split equally between its two screws.
+  AggregateThrust,
+  /// Per-rotor angular-velocity command mapped through the thrust coefficients.
+  RotorVelocity,
+};
+
+struct ActuatorModelParameters
+{
+  ActuatorCommandMode command_mode{ActuatorCommandMode::AggregateThrust};
+  SegmentThrustVector maximum_segment_thrust = SegmentThrustVector::Constant(1.0);
+  // Thrust force axis expressed in the WORLD frame.
+  // This is the most intuitive parameter for users: set {1,0,0} for world +X forward motion,
+  // {-1,0,0} for world -X, {0,0,1} for world +Z, etc.
+  // The code internally converts this to the rotor's local frame for Jacobian projection.
+  Eigen::Vector3d rotor_force_axis_world{1.0, 0.0, 0.0};
+
+  /// RotorVelocity mode thrust map, f = thrust_linear * w + thrust_quadratic * w * |w|.
+  RotorVector thrust_linear = RotorVector::Zero();
+  RotorVector thrust_quadratic = RotorVector::Zero();
+  RotorVector maximum_rotor_rate = RotorVector::Constant(20.9439510239);
+
+  /// First-order thruster lag, in seconds. Zero makes each screw reach its commanded
+  /// thrust within the same step, which is the behaviour of a lag-free thruster.
+  double thrust_time_constant{0.0};
+
+  /// Reaction torque that the helix feeds back into its segment. The two screws of a
+  /// segment have opposite handedness, so symmetric thrust produces no net torque and
+  /// only differential thrust does.
+  bool enable_reaction_torque{true};
+  ScrewDriveParameters screw;
+};
+
+struct ActuatorEvaluation
+{
+  SegmentThrustVector actual_segment_thrust = SegmentThrustVector::Zero();
+  RotorVector rotor_thrust = RotorVector::Zero();
+  RotorVector rotor_reaction_torque = RotorVector::Zero();
+  GeneralizedVector generalized_force = GeneralizedVector::Zero();
+  std::array<std::array<SpatialVector, 2>, kNumLinks> rotor_wrenches{};
+};
+
+class ActuatorModel
+{
+public:
+  explicit ActuatorModel(const ActuatorModelParameters & params = ActuatorModelParameters{});
+
+  bool isValid() const;
+  const std::string & error() const;
+  const ActuatorModelParameters & parameters() const;
+  const ScrewDriveModel & screwDriveModel() const;
+
+  /// Saturated per-rotor thrust that the commands ask for, before the thruster lag.
+  RotorVector commandedRotorThrust(
+    const SegmentThrustVector & segment_thrust, const RotorVector & rotor_rate) const;
+
+  /// Exact first-order lag update over one step. Returns the commanded thrust
+  /// unchanged when thrust_time_constant is zero.
+  RotorVector advanceRotorThrust(
+    const RotorVector & rotor_thrust, const RotorVector & commanded_rotor_thrust,
+    double dt) const;
+
+  /// Projects an already-resolved per-rotor thrust into generalized coordinates.
+  ActuatorEvaluation evaluate(
+    const PinocchioKinematicsState & kinematics,
+    const RotorVector & rotor_thrust,
+    const JointTorqueVector & joint_torque = JointTorqueVector::Zero()) const;
+
+  /// Lag-free convenience path: resolves the commands and evaluates in one call.
+  ActuatorEvaluation evaluate(
+    const PinocchioKinematicsState & kinematics,
+    const SegmentThrustVector & segment_thrust,
+    const JointTorqueVector & joint_torque = JointTorqueVector::Zero(),
+    const RotorVector & rotor_rate = RotorVector::Zero()) const;
+
+private:
+  ActuatorModelParameters params_;
+  ScrewDriveModel screw_model_;
+  std::string error_;
+};
+
+}  // namespace asr_sdm_kinematic_dynamic_model
+
+#endif  // ASR_SDM_KINEMATIC_DYNAMIC_MODEL_ACTUATOR_MODEL_HPP_

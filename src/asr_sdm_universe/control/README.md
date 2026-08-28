@@ -17,7 +17,7 @@ libraries called by those nodes.
 | Package | Responsibility | Main products |
 |---|---|---|
 | [`asr_sdm_head_following_control`](asr_sdm_head_following_control/) | ROS-independent 2D and 3D head-following algorithms | `front_unit_following_controller_2d_core`, `front_unit_following_controller_3d_core` |
-| [`asr_sdm_kinematic_dynamic_model`](asr_sdm_kinematic_dynamic_model/) | Pinocchio kinematic/dynamic model and the retained legacy URDF dynamics utility | `asr_sdm_kinematic_model`, `pinocchio_dynamics_node` |
+| [`asr_sdm_kinematic_dynamic_model`](asr_sdm_kinematic_dynamic_model/) | Pinocchio kinematic/dynamic model, GRAMPC-based MPC controller, stochastic MPC | `asr_sdm_mpc_controller`, `asr_sdm_kinematic_dynamic_model_core`, `StochasticGrampcDynamics` |
 | [`asr_sdm_control_manager`](asr_sdm_control_manager/) | ROS 2 topics, parameters, command handling, state integration, and robot-state publication | `asr_sdm_control_manager` |
 
 Production dependencies are one-way:
@@ -36,6 +36,39 @@ robot_cmd
   -> head-following controller + Pinocchio model
   -> joint_states + odometry + optional hardware command
 ```
+
+### Model Predictive Control (GRAMPC)
+
+[`asr_sdm_kinematic_dynamic_model`](asr_sdm_kinematic_dynamic_model/) includes a GRAMPC-based MPC
+controller (`UnderwaterMpcController`) for underwater robot trajectory tracking.
+
+**Key components:**
+
+| Class / File | Role |
+|---|---|
+| `UnderwaterMpcController` | High-level MPC controller wrapping GRAMPC solver |
+| `GrampcUnderwaterDynamics` | GRAMPC problem description (FFct, LLfct, etc.) |
+| `UnderwaterSimulator` | Pinocchio-based forward dynamics with hydrodynamics |
+| `StochasticGrampcDynamics` | Sigma-point / Monte Carlo stochastic MPC wrapper |
+| `MpcSafetyMapper` | Post-solver safety layer (saturation, rate limiting, NaN guard) |
+
+**Stochastic MPC transformations supported:**
+`Unscented`, `StirlingFirstOrder`, `StirlingSecondOrder`, `MonteCarlo`. See
+[`asr_sdm_kinematic_dynamic_model/README.md`](asr_sdm_kinematic_dynamic_model/README.md)
+for details and test results.
+
+**Feature matrix (v1.2.x):**
+
+| Feature | Version | Status |
+|---|---|---|
+| Full-state GRAMPC MPC | v1.2.0 | ✅ |
+| Incremental warm-start | v1.2.1 | ✅ |
+| Quaternion-log cost | v1.2.1 | ✅ |
+| Multi-scenario validation | v1.2.2 | ✅ |
+| Time-varying reference trajectory | v1.2.3 | ✅ |
+| MPC safety mapper | v1.2.4 | ✅ |
+| Stochastic MPC closed-loop | v1.2.5 | ✅ |
+| Multi operating point validation | v1.2.6 | ✅ |
 
 `planning_simulator` includes the control-manager launch file and uses the 3D
 manager as the supported ROS control entry point.
@@ -131,6 +164,38 @@ robot_cmd
   -> 前端跟随控制器 + Pinocchio 运动学
   -> joint_states + odom + 可选硬件指令
 ```
+
+### 模型预测控制（GRAMPC）
+
+[`asr_sdm_kinematic_dynamic_model`](asr_sdm_kinematic_dynamic_model/) 包含基于 GRAMPC 的 MPC 控制器
+（`UnderwaterMpcController`），用于水下机器人轨迹跟踪。
+
+**核心组件：**
+
+| 类 / 文件 | 作用 |
+|---|---|
+| `UnderwaterMpcController` | 高级 MPC 控制器，封装 GRAMPC 求解器 |
+| `GrampcUnderwaterDynamics` | GRAMPC 问题描述（FFct、LLfct 等） |
+| `UnderwaterSimulator` | 基于 Pinocchio 的前向动力学（含水动力学） |
+| `StochasticGrampcDynamics` | Sigma 点 / Monte Carlo 随机 MPC 包装器 |
+| `MpcSafetyMapper` | 后处理安全层（饱和限幅、变化率限制、NaN 保护） |
+
+**支持的随机 MPC 变换方法：**
+`Unscented`、`StirlingFirstOrder`、`StirlingSecondOrder`、`MonteCarlo`。详见
+[`asr_sdm_kinematic_dynamic_model/README.md`](asr_sdm_kinematic_dynamic_model/README.md)。
+
+**功能版本矩阵（v1.2.x）：**
+
+| 功能 | 版本 | 状态 |
+|---|---|---|
+| 完整状态 GRAMPC MPC | v1.2.0 | ✅ |
+| 增量温启动 | v1.2.1 | ✅ |
+| 四元数对数代价 | v1.2.1 | ✅ |
+| 多工况点验证 | v1.2.2 | ✅ |
+| 时变参考轨迹 | v1.2.3 | ✅ |
+| MPC 安全映射层 | v1.2.4 | ✅ |
+| Stochastic MPC 闭环 | v1.2.5 | ✅ |
+| 多工况点闭环验证 | v1.2.6 | ✅ |
 
 ### 发布 / 订阅的 topic
 
