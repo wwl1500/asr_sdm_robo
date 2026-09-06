@@ -36,12 +36,26 @@ def generate_launch_description():
             'auto_shutdown': ParameterValue(
                 LaunchConfiguration('auto_shutdown'), value_type=bool),
             'csv_path': LaunchConfiguration('csv_path'),
+            'root_frame': LaunchConfiguration('root_frame'),
             'z_to_x_map': ParameterValue(
                 LaunchConfiguration('z_to_x_map'), value_type=bool),
+            'integrator': LaunchConfiguration('integrator'),
             'force_scale': ParameterValue(
                 LaunchConfiguration('force_scale'), value_type=float),
             'max_trajectory_points': ParameterValue(
                 LaunchConfiguration('max_trajectory_points'), value_type=int),
+            'joint_viscous_damping': ParameterValue(
+                LaunchConfiguration('joint_viscous_damping'), value_type=str),
+            'joint_coulomb_friction': ParameterValue(
+                LaunchConfiguration('joint_coulomb_friction'), value_type=str),
+            'joint_friction_velocity_scale': ParameterValue(
+                LaunchConfiguration('joint_friction_velocity_scale'), value_type=float),
+            'joint_limit_stiffness': ParameterValue(
+                LaunchConfiguration('joint_limit_stiffness'), value_type=float),
+            'joint_limit_damping': ParameterValue(
+                LaunchConfiguration('joint_limit_damping'), value_type=float),
+            'joint_limit': ParameterValue(
+                LaunchConfiguration('joint_limit'), value_type=float),
         }],
     )
 
@@ -55,9 +69,36 @@ def generate_launch_description():
         DeclareLaunchArgument('with_control_panel', default_value='false'),
         DeclareLaunchArgument('rvizconfig', default_value=str(rviz_path)),
         DeclareLaunchArgument('use_sim_time', default_value='false'),
-        DeclareLaunchArgument('z_to_x_map', default_value='true'),
+        DeclareLaunchArgument('z_to_x_map', default_value='false'),
+        DeclareLaunchArgument('root_frame', default_value='base'),
+        DeclareLaunchArgument('integrator', default_value='semi_implicit_euler'),
         DeclareLaunchArgument('force_scale', default_value='0.02'),
         DeclareLaunchArgument('max_trajectory_points', default_value='3000'),
+        # Joint dynamics parameters (6-DOF vectors as strings, scalars as floats)
+        DeclareLaunchArgument(
+            'joint_viscous_damping',
+            default_value='[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]',
+            description='Joint viscous damping coefficients (Nm·s/rad) for 6 joints'),
+        DeclareLaunchArgument(
+            'joint_coulomb_friction',
+            default_value='[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]',
+            description='Joint Coulomb friction coefficients (Nm) for 6 joints'),
+        DeclareLaunchArgument(
+            'joint_friction_velocity_scale',
+            default_value='0.001',
+            description='Velocity scale for Coulomb friction regularization (rad/s)'),
+        DeclareLaunchArgument(
+            'joint_limit_stiffness',
+            default_value='0.0',
+            description='Joint limit spring stiffness (Nm/rad), 0.0 disables limit forces'),
+        DeclareLaunchArgument(
+            'joint_limit_damping',
+            default_value='0.0',
+            description='Joint limit damping coefficient (Nm·s/rad)'),
+        DeclareLaunchArgument(
+            'joint_limit',
+            default_value='1.5707963267948966',
+            description='Joint travel range limit (rad), default ±π/2'),
         simulator_node,
         RegisterEventHandler(OnProcessExit(
             target_action=simulator_node,

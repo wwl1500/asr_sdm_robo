@@ -15,6 +15,8 @@ namespace asr_sdm_kinematic_dynamic_model
 namespace
 {
 
+constexpr double kPi = 3.14159265358979323846;
+
 Eigen::Vector3d toEigen(const Vec3 & value)
 {
   return Eigen::Vector3d(value.x, value.y, value.z);
@@ -148,7 +150,55 @@ FluidForceModel::FluidForceModel(const HydrodynamicModelParameters & params)
       error_ = stream.str();
       return;
     }
+    if (!finite(link_params.linear_damping_matrix) ||
+      !finite(link_params.quadratic_damping_matrix))
+    {
+      std::ostringstream stream;
+      stream << "Link " << link << " damping matrix contains a non-finite value";
+      error_ = stream.str();
+      return;
+    }
+
+    linear_damping_[link] = link_params.linear_damping_matrix;
+    linear_damping_[link].diagonal() += link_params.linear_damping;
+    quadratic_damping_[link] = link_params.quadratic_damping_matrix;
+    quadratic_damping_[link].diagonal() += link_params.quadratic_damping;
+
+    // Cross-coupled damping stays dissipative exactly when its symmetric part is
+    // positive semidefinite; the skew part does no work and is left unconstrained.
+    for (const auto * damping : {&linear_damping_[link], &quadratic_damping_[link]}) {
+      const Eigen::SelfAdjointEigenSolver<SpatialMatrix> solver(
+        0.5 * (*damping + damping->transpose()));
+      if (solver.info() != Eigen::Success || solver.eigenvalues().minCoeff() < -tolerance) {
+        std::ostringstream stream;
+        stream << "Link " << link << " damping matrix is not dissipative";
+        error_ = stream.str();
+        return;
+      }
+    }
   }
+}
+
+SpatialVector makeCylinderMorisonDamping(
+  double fluid_density, double diameter, double length, double transverse_drag_coefficient,
+  double axial_drag_coefficient, double rolling_drag_coefficient)
+{
+  const double radius = 0.5 * diameter;
+  const double transverse_area = diameter * length;
+  const double axial_area = kPi * radius * radius;
+
+  SpatialVector damping = SpatialVector::Zero();
+  damping(0) = 0.5 * fluid_density * transverse_drag_coefficient * transverse_area;
+  damping(1) = damping(0);
+  damping(2) = 0.5 * fluid_density * axial_drag_coefficient * axial_area;
+  // Strip drag 0.5 * rho * Cd * d * |w r| * (w r) * r integrated over -L/2..L/2.
+  const double rotational =
+    0.5 * fluid_density * transverse_drag_coefficient * diameter * std::pow(length, 4.0) / 64.0;
+  damping(3) = rotational;
+  damping(4) = rotational;
+  damping(5) = 0.5 * fluid_density * rolling_drag_coefficient * transverse_area *
+    std::pow(radius, 3.0);
+  return damping;
 }
 
 bool FluidForceModel::isValid() const
@@ -296,15 +346,23 @@ HydrodynamicEvaluation FluidForceModel::evaluate(
     }
 
     const auto & link_params = params_.links[link];
+    // Added mass acts on the acceleration relative to the fluid. Even a constant
+    // world current has a rotating local representation, so its rate is subtracted.
+    SpatialVector current_local_rate = SpatialVector::Zero();
+    current_local_rate.head<3>() =
+      -output.local_twists[link].tail<3>().cross(frame.transpose() * fluid_current_world);
+    const SpatialVector relative_acceleration =
+      output.local_accelerations[link] - current_local_rate;
+
     const SpatialVector added_mass_momentum = link_params.added_mass * output.relative_twists[link];
     output.added_mass_wrenches[link] = -(
-      link_params.added_mass * output.local_accelerations[link] +
+      link_params.added_mass * relative_acceleration +
       spatialCrossStar(output.relative_twists[link], added_mass_momentum));
     output.linear_damping_wrenches[link] =
-      -link_params.linear_damping.cwiseProduct(output.relative_twists[link]);
+      -linear_damping_[link] * output.relative_twists[link];
     output.quadratic_damping_wrenches[link] =
-      -link_params.quadratic_damping.cwiseProduct(
-      output.relative_twists[link].cwiseAbs().cwiseProduct(output.relative_twists[link]));
+      -quadratic_damping_[link] *
+      output.relative_twists[link].cwiseAbs().cwiseProduct(output.relative_twists[link]);
 
     const Eigen::Vector3d gravity_force_local =
       link_params.mass * frame.transpose() * params_.gravity_world;
@@ -336,16 +394,34 @@ HydrodynamicEvaluation FluidForceModel::evaluate(
   return output;
 }
 
+SpatialMatrix FluidForceModel::effectiveLinearDamping(std::size_t link) const
+{
+  if (link >= kNumLinks) {
+    throw std::out_of_range("Fluid link index is out of range");
+  }
+  return linear_damping_[link];
+}
+
+SpatialMatrix FluidForceModel::effectiveQuadraticDamping(std::size_t link) const
+{
+  if (link >= kNumLinks) {
+    throw std::out_of_range("Fluid link index is out of range");
+  }
+  return quadratic_damping_[link];
+}
+
 PinocchioHydrodynamicEvaluation FluidForceModel::evaluatePinocchio(
   const PinocchioKinematicsState & kinematics,
   const GeneralizedVector & velocity,
   const GeneralizedVector & acceleration,
-  const Eigen::Vector3d & fluid_current_world) const
+  const Eigen::Vector3d & fluid_current_world,
+  const Eigen::Vector3d & fluid_current_acceleration_world) const
 {
   if (!isValid()) {
     throw std::runtime_error("Cannot evaluate an invalid fluid model: " + error_);
   }
   if (!fluid_current_world.array().isFinite().all() ||
+    !fluid_current_acceleration_world.array().isFinite().all() ||
     !velocity.array().isFinite().all() || !acceleration.array().isFinite().all())
   {
     throw std::invalid_argument("Pinocchio fluid inputs must contain only finite values");
@@ -358,22 +434,35 @@ PinocchioHydrodynamicEvaluation FluidForceModel::evaluatePinocchio(
     const Eigen::Matrix3d rotation = kinematics.segment_placements[link].rotation();
     const SpatialVector local_velocity = jacobian * velocity;
     const SpatialVector local_acceleration = jacobian * acceleration + jacobian_dot * velocity;
+
+    const Eigen::Vector3d current_local = rotation.transpose() * fluid_current_world;
     SpatialVector relative_velocity = local_velocity;
-    relative_velocity.head<3>() -= rotation.transpose() * fluid_current_world;
+    relative_velocity.head<3>() -= current_local;
+
+    // The local components of the current change even for a constant world current,
+    // because the link frame rotates: d/dt(R' u) = R' u_dot - omega x (R' u).
+    SpatialVector current_local_rate = SpatialVector::Zero();
+    current_local_rate.head<3>() = rotation.transpose() * fluid_current_acceleration_world -
+      local_velocity.tail<3>().cross(current_local);
+    const SpatialVector relative_acceleration = local_acceleration - current_local_rate;
+
     output.relative_twists[link] = relative_velocity;
     output.local_accelerations[link] = local_acceleration;
+    output.relative_accelerations[link] = relative_acceleration;
 
     const auto & link_params = params_.links[link];
     const SpatialVector momentum = link_params.added_mass * relative_velocity;
+    // Everything in the added-mass wrench except the part proportional to the
+    // unknown generalized acceleration, which the caller folds into the mass matrix.
     const SpatialVector acceleration_bias =
-      link_params.added_mass * (jacobian_dot * velocity) +
+      link_params.added_mass * (jacobian_dot * velocity - current_local_rate) +
       spatialCrossStar(relative_velocity, momentum);
     const SpatialVector added_wrench = -(
       link_params.added_mass * jacobian * acceleration + acceleration_bias);
     const SpatialVector damping_wrench =
-      -link_params.linear_damping.cwiseProduct(relative_velocity) -
-      link_params.quadratic_damping.cwiseProduct(
-      relative_velocity.cwiseAbs().cwiseProduct(relative_velocity));
+      -linear_damping_[link] * relative_velocity -
+      quadratic_damping_[link] *
+      relative_velocity.cwiseAbs().cwiseProduct(relative_velocity);
 
     const Eigen::Vector3d buoyancy_world =
       -params_.fluid_density * link_params.displaced_volume * params_.gravity_world;
@@ -382,15 +471,25 @@ PinocchioHydrodynamicEvaluation FluidForceModel::evaluatePinocchio(
     buoyancy_wrench.head<3>() = buoyancy_force;
     buoyancy_wrench.tail<3>() = link_params.center_of_buoyancy.cross(buoyancy_force);
 
+    // Froude-Krylov: the pressure gradient that accelerates the displaced fluid.
+    const Eigen::Vector3d froude_krylov_force =
+      params_.fluid_density * link_params.displaced_volume * rotation.transpose() *
+      fluid_current_acceleration_world;
+    SpatialVector froude_krylov_wrench = SpatialVector::Zero();
+    froude_krylov_wrench.head<3>() = froude_krylov_force;
+    froude_krylov_wrench.tail<3>() = link_params.center_of_buoyancy.cross(froude_krylov_force);
+
     output.added_mass_wrenches[link] = added_wrench;
     output.damping_wrenches[link] = damping_wrench;
     output.buoyancy_wrenches[link] = buoyancy_wrench;
-    output.total_wrenches[link] = damping_wrench + buoyancy_wrench;
+    output.froude_krylov_wrenches[link] = froude_krylov_wrench;
+    output.total_wrenches[link] = damping_wrench + buoyancy_wrench + froude_krylov_wrench;
     output.added_mass_matrix += jacobian.transpose() * link_params.added_mass * jacobian;
     output.added_mass_bias_force += jacobian.transpose() * acceleration_bias;
     output.added_mass_force += jacobian.transpose() * added_wrench;
     output.damping_force += jacobian.transpose() * damping_wrench;
     output.buoyancy_force += jacobian.transpose() * buoyancy_wrench;
+    output.froude_krylov_force += jacobian.transpose() * froude_krylov_wrench;
     output.total_force += jacobian.transpose() * output.total_wrenches[link];
   }
   return output;

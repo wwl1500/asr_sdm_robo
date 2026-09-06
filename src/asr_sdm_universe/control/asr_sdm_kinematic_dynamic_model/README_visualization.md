@@ -8,22 +8,24 @@ fluid-force markers, and trajectory:
 /underwater_simulator/joint_states       sensor_msgs/JointState
 /underwater_simulator/fluid_force_markers visualization_msgs/MarkerArray
 /underwater_simulator/trajectory          visualization_msgs/Marker
-world -> screwdrive_segment_0             dynamic TF
+world -> base                             dynamic TF
 ```
 
 The launch starts `robot_state_publisher` with the installed generated URDF;
 the URDF is not modified. Do not run the separate `asr_sdm` display launch at
 the same time because it publishes a conflicting static root transform.
 
-The default display mapping is applied only at the visualization boundary:
+The display frame matches the kinematic simulation path. The generated URDF
+roots at `base` (+X forward, +Y left, +Z up) and already rotates CAD segment
++Z onto that frame with the fixed joint
 
 ```text
-R_display = [ 0  0  1
-              0  1  0
-             -1  0  0 ]
+base -> base_link -> screwdrive_segment_0   (rpy = 0, -pi/2, 0)
 ```
 
-Thus URDF +Z is shown as RViz +X. Set `z_to_x_map:=false` for native axes.
+so the free-flyer pose is published as `world -> base` with no extra software
+rotation. `z_to_x_map:=true` remains available only for legacy URDFs that still
+root at `screwdrive_segment_0`.
 
 ## Start RViz2
 

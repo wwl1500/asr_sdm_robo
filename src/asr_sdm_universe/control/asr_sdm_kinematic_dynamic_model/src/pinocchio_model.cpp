@@ -5,8 +5,10 @@
 #include <sstream>
 #include <stdexcept>
 
+#include <pinocchio/algorithm/aba.hpp>
 #include <pinocchio/algorithm/center-of-mass.hpp>
 #include <pinocchio/algorithm/crba.hpp>
+#include <pinocchio/algorithm/energy.hpp>
 #include <pinocchio/algorithm/frames.hpp>
 #include <pinocchio/algorithm/jacobian.hpp>
 #include <pinocchio/algorithm/joint-configuration.hpp>
@@ -64,6 +66,11 @@ PinocchioModel::PinocchioModel(const PinocchioModelParameters & params)
     error_ = "URDF file not found: " + params.urdf_path;
     return;
   }
+  if (!params.gravity_world.array().isFinite().all()) {
+    error_ = "Gravity must contain only finite values";
+    return;
+  }
+  gravity_world_ = params.gravity_world;
 
   auto full_model = std::make_shared<pinocchio::Model>();
   try {
@@ -141,6 +148,9 @@ PinocchioModel::PinocchioModel(const PinocchioModelParameters & params)
     return;
   }
 
+  impl_->model->gravity.linear() = gravity_world_;
+  impl_->model->gravity.angular().setZero();
+
   impl_->data = std::make_shared<pinocchio::Data>(*impl_->model);
   impl_->q = pinocchio::neutral(*impl_->model);
   impl_->v.setZero();
@@ -209,6 +219,11 @@ int PinocchioModel::nq() const
 int PinocchioModel::nv() const
 {
   return isValid() ? impl_->model->nv : 0;
+}
+
+const Eigen::Vector3d & PinocchioModel::gravityWorld() const
+{
+  return gravity_world_;
 }
 
 std::array<PinocchioControllerDofMapping, kNumJointDofs>
@@ -284,22 +299,64 @@ PinocchioDynamicsState PinocchioModel::computeDynamics(
     throw std::runtime_error("Cannot compute dynamics for an invalid Pinocchio model: " + error_);
   }
 
+  PinocchioDynamicsState output;
+
+  // Every algorithm below writes into the shared Data, so each result is copied out
+  // before the next call runs.
   pinocchio::crba(*impl_->model, *impl_->data, configuration);
   impl_->data->M.triangularView<Eigen::StrictlyLower>() = impl_->data->M.transpose();
-  const Eigen::VectorXd nonlinear = pinocchio::nonLinearEffects(
-    *impl_->model, *impl_->data, configuration, velocity);
-  const Eigen::VectorXd gravity = pinocchio::computeGeneralizedGravity(
-    *impl_->model, *impl_->data, configuration);
-  const Eigen::Vector3d com = pinocchio::centerOfMass(
-    *impl_->model, *impl_->data, configuration, velocity);
-
-  PinocchioDynamicsState output;
   output.mass_matrix = impl_->data->M;
-  output.nonlinear_effects = nonlinear;
-  output.gravity = gravity;
-  output.center_of_mass = com;
+
+  output.coriolis_matrix =
+    pinocchio::computeCoriolisMatrix(*impl_->model, *impl_->data, configuration, velocity);
+  output.coriolis_force = output.coriolis_matrix * velocity;
+  output.nonlinear_effects =
+    pinocchio::nonLinearEffects(*impl_->model, *impl_->data, configuration, velocity);
+  output.gravity =
+    pinocchio::computeGeneralizedGravity(*impl_->model, *impl_->data, configuration);
+  output.center_of_mass =
+    pinocchio::centerOfMass(*impl_->model, *impl_->data, configuration, velocity);
   output.total_mass = pinocchio::computeTotalMass(*impl_->model);
+  output.kinetic_energy =
+    pinocchio::computeKineticEnergy(*impl_->model, *impl_->data, configuration, velocity);
+  output.potential_energy =
+    pinocchio::computePotentialEnergy(*impl_->model, *impl_->data, configuration);
   return output;
+}
+
+ReducedVelocity PinocchioModel::inverseDynamics(
+  const ReducedConfiguration & configuration, const ReducedVelocity & velocity,
+  const ReducedAcceleration & acceleration) const
+{
+  if (!isValid()) {
+    throw std::runtime_error("Cannot run inverse dynamics on an invalid Pinocchio model: " +
+        error_);
+  }
+  if (!configuration.array().isFinite().all() || !velocity.array().isFinite().all() ||
+    !acceleration.array().isFinite().all())
+  {
+    throw std::invalid_argument("Inverse-dynamics inputs must contain only finite values");
+  }
+  return pinocchio::rnea(
+    *impl_->model, *impl_->data, configuration, velocity, acceleration);
+}
+
+ReducedAcceleration PinocchioModel::forwardDynamics(
+  const ReducedConfiguration & configuration, const ReducedVelocity & velocity,
+  const ReducedVelocity & torque) const
+{
+  if (!isValid()) {
+    throw std::runtime_error("Cannot run forward dynamics on an invalid Pinocchio model: " +
+        error_);
+  }
+  if (!configuration.array().isFinite().all() || !velocity.array().isFinite().all() ||
+    !torque.array().isFinite().all())
+  {
+    throw std::invalid_argument("Forward-dynamics inputs must contain only finite values");
+  }
+  return pinocchio::aba(
+    *impl_->model, *impl_->data, configuration, velocity, torque,
+    pinocchio::Convention::WORLD);
 }
 
 PinocchioKinematicsState PinocchioModel::computeKinematics(

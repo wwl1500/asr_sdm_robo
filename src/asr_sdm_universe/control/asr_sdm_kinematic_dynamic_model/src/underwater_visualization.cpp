@@ -10,6 +10,9 @@ Eigen::Matrix3d displayRotation(bool z_to_x_map)
   if (!z_to_x_map) {
     return Eigen::Matrix3d::Identity();
   }
+  // Legacy display-only map: URDF segment +Z -> RViz +X.
+  // Prefer the generated URDF `base` root (fixed joint rpy="0 -pi/2 0") instead,
+  // which is what the kinematic simulation uses.
   Eigen::Matrix3d rotation;
   rotation << 0.0, 0.0, 1.0,
     0.0, 1.0, 0.0,

@@ -38,9 +38,12 @@ public:
     run_forever_ = declare_parameter<bool>("run_forever", false);
     auto_shutdown_ = declare_parameter<bool>("auto_shutdown", true);
     csv_path_ = declare_parameter<std::string>("csv_path", "underwater_simulation.csv");
+    // Match the kinematic display path: the generated URDF roots at `base`
+    // (+X forward) and already rotates CAD +Z onto that frame with a fixed joint.
+    // Software z_to_x_map is only for legacy URDFs that still root at the segment.
     world_frame_ = declare_parameter<std::string>("world_frame", "world");
-    root_frame_ = declare_parameter<std::string>("root_frame", "screwdrive_segment_0");
-    z_to_x_map_ = declare_parameter<bool>("z_to_x_map", true);
+    root_frame_ = declare_parameter<std::string>("root_frame", "base");
+    z_to_x_map_ = declare_parameter<bool>("z_to_x_map", false);
     force_scale_ = declare_parameter<double>("force_scale", 0.02);
     max_trajectory_points_ = declare_parameter<int>("max_trajectory_points", 3000);
     if (!std::isfinite(dt_) || dt_ <= 0.0 || !std::isfinite(duration_) || duration_ < 0.0 ||
@@ -58,11 +61,16 @@ public:
     state_ = simulator_->makeInitialState();
     applyInitialState();
     input_.segment_thrust = readFixedVector<kNumLinks>("segment_thrust");
+    input_.rotor_rate = readFixedVector<kNumRotors>("rotor_rate");
     input_.joint_torque = readFixedVector<kNumJointDofs>("joint_torque");
     input_.fluid_current_world = Eigen::Vector3d(
       declare_parameter<double>("fluid_current_x", 0.0),
       declare_parameter<double>("fluid_current_y", 0.0),
       declare_parameter<double>("fluid_current_z", 0.0));
+    input_.fluid_current_acceleration_world = Eigen::Vector3d(
+      declare_parameter<double>("fluid_current_acceleration_x", 0.0),
+      declare_parameter<double>("fluid_current_acceleration_y", 0.0),
+      declare_parameter<double>("fluid_current_acceleration_z", 0.0));
     parameter_callback_handle_ = add_on_set_parameters_callback(
       std::bind(&UnderwaterSimulatorNode::onParametersSet, this, std::placeholders::_1));
     joint_state_pub_ = create_publisher<sensor_msgs::msg::JointState>(
@@ -119,6 +127,20 @@ private:
     return output;
   }
 
+  /// Reads a fixed-length array in place, using whatever the struct already holds as
+  /// the ROS default so the model defaults stay the single source of truth.
+  template<std::size_t Size>
+  void readFixedArray(const std::string & name, std::array<double, Size> & values)
+  {
+    const auto parameter = declare_parameter<std::vector<double>>(
+      name, std::vector<double>(values.begin(), values.end()));
+    if (parameter.size() != Size) {
+      throw std::runtime_error(
+        name + " must contain exactly " + std::to_string(Size) + " values");
+    }
+    std::copy(parameter.begin(), parameter.end(), values.begin());
+  }
+
   UnderwaterSimulatorParameters makeSimulatorParameters()
   {
     UnderwaterSimulatorParameters params;
@@ -137,6 +159,22 @@ private:
           std::string(e.what()));
       }
     }
+    const auto gravity = declare_parameter<std::vector<double>>(
+      "gravity_world", std::vector<double>{0.0, 0.0, -9.81});
+    if (gravity.size() != 3) {
+      throw std::runtime_error("gravity_world must contain three values");
+    }
+    params.gravity_world = Eigen::Vector3d(gravity[0], gravity[1], gravity[2]);
+
+    const auto integrator = declare_parameter<std::string>("integrator", "semi_implicit_euler");
+    if (integrator == "semi_implicit_euler") {
+      params.integration_method = IntegrationMethod::SemiImplicitEuler;
+    } else if (integrator == "rk4") {
+      params.integration_method = IntegrationMethod::RungeKutta4;
+    } else {
+      throw std::runtime_error("integrator must be 'semi_implicit_euler' or 'rk4'");
+    }
+
     params.hydrodynamics.fluid_density = declare_parameter<double>("fluid_density", 1000.0);
     const auto volumes = declare_parameter<std::vector<double>>(
       "displaced_volume", std::vector<double>(kNumLinks, 5.81e-4));
@@ -150,16 +188,37 @@ private:
     if (added_mass_diagonal.size() != kNumLinks * kSpatialDofs) {
       throw std::runtime_error("added_mass_diagonal must contain 24 values");
     }
+    // A positive Morison diameter replaces the flat quadratic coefficient with strip
+    // drag derived from the segment geometry.
+    const double morison_diameter = declare_parameter<double>("morison_diameter", 0.0);
+    const double morison_length = declare_parameter<double>("morison_length", 0.25);
+    const double morison_transverse_cd =
+      declare_parameter<double>("morison_transverse_drag_coefficient", 1.2);
+    const double morison_axial_cd =
+      declare_parameter<double>("morison_axial_drag_coefficient", 0.3);
+    const double morison_rolling_cd =
+      declare_parameter<double>("morison_rolling_drag_coefficient", 0.0);
+    if (morison_diameter < 0.0 || morison_length <= 0.0) {
+      throw std::runtime_error(
+        "morison_diameter must be nonnegative and morison_length must be positive");
+    }
+    const SpatialVector morison_damping = morison_diameter > 0.0 ?
+      makeCylinderMorisonDamping(
+      params.hydrodynamics.fluid_density, morison_diameter, morison_length,
+      morison_transverse_cd, morison_axial_cd, morison_rolling_cd) :
+      SpatialVector::Constant(quadratic_damping);
+
     for (std::size_t link = 0; link < kNumLinks; ++link) {
       params.hydrodynamics.links[link].displaced_volume = volumes[link];
       params.hydrodynamics.links[link].linear_damping.setConstant(linear_damping);
-      params.hydrodynamics.links[link].quadratic_damping.setConstant(quadratic_damping);
+      params.hydrodynamics.links[link].quadratic_damping = morison_damping;
       for (std::size_t component = 0; component < kSpatialDofs; ++component) {
         params.hydrodynamics.links[link].added_mass(
           static_cast<Eigen::Index>(component), static_cast<Eigen::Index>(component)) =
           added_mass_diagonal[link * kSpatialDofs + component];
       }
     }
+
     const auto maximum_thrust = declare_parameter<std::vector<double>>(
       "maximum_segment_thrust", std::vector<double>(kNumLinks, 1.0));
     if (maximum_thrust.size() != kNumLinks) {
@@ -169,6 +228,36 @@ private:
       params.actuators.maximum_segment_thrust(static_cast<Eigen::Index>(link)) =
         maximum_thrust[link];
     }
+
+    const auto command_mode = declare_parameter<std::string>(
+      "actuator_command_mode", "aggregate_thrust");
+    if (command_mode == "aggregate_thrust") {
+      params.actuators.command_mode = ActuatorCommandMode::AggregateThrust;
+    } else if (command_mode == "rotor_velocity") {
+      params.actuators.command_mode = ActuatorCommandMode::RotorVelocity;
+    } else {
+      throw std::runtime_error(
+        "actuator_command_mode must be 'aggregate_thrust' or 'rotor_velocity'");
+    }
+    params.actuators.thrust_time_constant =
+      declare_parameter<double>("thrust_time_constant", 0.0);
+    params.actuators.enable_reaction_torque =
+      declare_parameter<bool>("enable_reaction_torque", true);
+    params.actuators.thrust_linear = readFixedVector<kNumRotors>("rotor_thrust_linear");
+    params.actuators.thrust_quadratic = readFixedVector<kNumRotors>("rotor_thrust_quadratic");
+    readFixedArray("screw_helix_angle", params.actuators.screw.helix_angle);
+    readFixedArray("screw_radius", params.actuators.screw.screw_radius);
+    readFixedArray("screw_handedness", params.actuators.screw.handedness);
+
+    params.joints.viscous_damping = readFixedVector<kNumJointDofs>("joint_viscous_damping");
+    params.joints.coulomb_friction = readFixedVector<kNumJointDofs>("joint_coulomb_friction");
+    params.joints.friction_velocity_scale =
+      declare_parameter<double>("joint_friction_velocity_scale", 1.0e-3);
+    params.joints.limit_stiffness = declare_parameter<double>("joint_limit_stiffness", 0.0);
+    params.joints.limit_damping = declare_parameter<double>("joint_limit_damping", 0.0);
+    const double joint_limit = declare_parameter<double>("joint_limit", 1.5707963267948966);
+    params.joints.lower_limit.setConstant(-std::abs(joint_limit));
+    params.joints.upper_limit.setConstant(std::abs(joint_limit));
     return params;
   }
 
@@ -238,6 +327,12 @@ private:
           candidate_input.fluid_current_world.y() = parameter.as_double();
         } else if (name == "fluid_current_z") {
           candidate_input.fluid_current_world.z() = parameter.as_double();
+        } else if (name == "fluid_current_acceleration_x") {
+          candidate_input.fluid_current_acceleration_world.x() = parameter.as_double();
+        } else if (name == "fluid_current_acceleration_y") {
+          candidate_input.fluid_current_acceleration_world.y() = parameter.as_double();
+        } else if (name == "fluid_current_acceleration_z") {
+          candidate_input.fluid_current_acceleration_world.z() = parameter.as_double();
         } else if (name == "segment_thrust") {
           const auto values = parameter.as_double_array();
           if (values.size() != kNumLinks) {
@@ -245,6 +340,14 @@ private:
           }
           for (std::size_t link = 0; link < kNumLinks; ++link) {
             candidate_input.segment_thrust(static_cast<Eigen::Index>(link)) = values[link];
+          }
+        } else if (name == "rotor_rate") {
+          const auto values = parameter.as_double_array();
+          if (values.size() != kNumRotors) {
+            throw std::invalid_argument("rotor_rate must contain eight values");
+          }
+          for (std::size_t rotor = 0; rotor < kNumRotors; ++rotor) {
+            candidate_input.rotor_rate(static_cast<Eigen::Index>(rotor)) = values[rotor];
           }
         } else if (name == "joint_torque") {
           const auto values = parameter.as_double_array();
@@ -267,7 +370,9 @@ private:
       }
 
       if (!candidate_input.fluid_current_world.array().isFinite().all() ||
+        !candidate_input.fluid_current_acceleration_world.array().isFinite().all() ||
         !candidate_input.segment_thrust.array().isFinite().all() ||
+        !candidate_input.rotor_rate.array().isFinite().all() ||
         !candidate_input.joint_torque.array().isFinite().all())
       {
         throw std::invalid_argument("Runtime input must contain only finite values");
@@ -309,7 +414,11 @@ private:
     transform.child_frame_id = root_frame_;
     const Eigen::Vector3d position = mapPosition(
       state.configuration.head<3>(), z_to_x_map_);
-    const Eigen::Matrix3d mapped_rotation = mapRotation(rotation, z_to_x_map_);
+    // Apply the URDF fixed rotation (base -> base_link -> screwdrive_segment_0, rpy="0 -pi/2 0")
+    // so that Fixed Frame = world displays the robot with correct orientation (+X forward).
+    const Eigen::Matrix3d urdf_fixed_rotation =
+      (Eigen::Matrix3d() << 0, 0, 1, 0, 1, 0, -1, 0, 0).finished();
+    const Eigen::Matrix3d mapped_rotation = mapRotation(rotation, z_to_x_map_) * urdf_fixed_rotation;
     transform.transform.translation.x = position.x();
     transform.transform.translation.y = position.y();
     transform.transform.translation.z = position.z();
@@ -391,12 +500,12 @@ private:
   double duration_{60.0};
   bool run_forever_{false};
   bool auto_shutdown_{true};
-  bool z_to_x_map_{true};
+  bool z_to_x_map_{false};
   double force_scale_{0.02};
   int max_trajectory_points_{3000};
   std::string csv_path_;
   std::string world_frame_{"world"};
-  std::string root_frame_{"screwdrive_segment_0"};
+  std::string root_frame_{"base"};
   HydrodynamicModelParameters hydrodynamic_parameters_;
   UnderwaterSimulatorInput input_;
   UnderwaterSimulatorState state_;

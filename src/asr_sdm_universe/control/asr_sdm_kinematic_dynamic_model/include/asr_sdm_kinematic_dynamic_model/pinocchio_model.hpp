@@ -33,6 +33,9 @@ struct PinocchioModelParameters
   std::string urdf_path;
   bool use_free_flyer{true};
   bool lock_rotor_joints{true};
+  // Rigid-body weight direction. UnderwaterSimulator keeps this equal to the
+  // hydrodynamic gravity so that weight and buoyancy cannot disagree.
+  Eigen::Vector3d gravity_world{0.0, 0.0, -9.81};
   std::array<std::string, kNumJointDofs> controller_joint_names{
     "joint_joint_unit_a__joint_unit_cross__0",
     "joint_joint_unit_cross__joint_unit_b__0",
@@ -55,12 +58,20 @@ struct PinocchioDynamicsState
 {
   Eigen::Matrix<double, kReducedNv, kReducedNv> mass_matrix =
     Eigen::Matrix<double, kReducedNv, kReducedNv>::Zero();
+  // Coriolis/centrifugal matrix C(q, v) and the matching C(q, v) * v product.
+  // nonlinear_effects equals coriolis_force + gravity.
+  Eigen::Matrix<double, kReducedNv, kReducedNv> coriolis_matrix =
+    Eigen::Matrix<double, kReducedNv, kReducedNv>::Zero();
+  Eigen::Matrix<double, kReducedNv, 1> coriolis_force =
+    Eigen::Matrix<double, kReducedNv, 1>::Zero();
   Eigen::Matrix<double, kReducedNv, 1> nonlinear_effects =
     Eigen::Matrix<double, kReducedNv, 1>::Zero();
   Eigen::Matrix<double, kReducedNv, 1> gravity =
     Eigen::Matrix<double, kReducedNv, 1>::Zero();
   Eigen::Vector3d center_of_mass{Eigen::Vector3d::Zero()};
   double total_mass{0.0};
+  double kinetic_energy{0.0};
+  double potential_energy{0.0};
 };
 
 struct PinocchioKinematicsState
@@ -81,6 +92,7 @@ public:
   const std::string & error() const;
   int nq() const;
   int nv() const;
+  const Eigen::Vector3d & gravityWorld() const;
   std::array<PinocchioControllerDofMapping, kNumJointDofs> controllerDofMapping() const;
 
   ReducedConfiguration neutralConfiguration() const;
@@ -99,9 +111,20 @@ public:
   ReducedConfiguration integrate(
     const ReducedConfiguration & configuration, const ReducedVelocity & velocity) const;
 
+  /// RNEA: tau = M(q) a + C(q, v) v + g(q).
+  ReducedVelocity inverseDynamics(
+    const ReducedConfiguration & configuration, const ReducedVelocity & velocity,
+    const ReducedAcceleration & acceleration) const;
+  /// Articulated body algorithm: a = M(q)^-1 (tau - C(q, v) v - g(q)). Provided as an
+  /// independent second opinion on the mass-matrix path used by the simulator.
+  ReducedAcceleration forwardDynamics(
+    const ReducedConfiguration & configuration, const ReducedVelocity & velocity,
+    const ReducedVelocity & torque) const;
+
 private:
   struct Impl;
   std::shared_ptr<Impl> impl_;
+  Eigen::Vector3d gravity_world_{0.0, 0.0, -9.81};
   std::string error_;
 };
 

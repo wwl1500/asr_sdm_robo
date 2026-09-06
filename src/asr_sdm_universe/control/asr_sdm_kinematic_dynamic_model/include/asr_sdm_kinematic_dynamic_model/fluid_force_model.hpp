@@ -54,9 +54,30 @@ struct HydrodynamicLinkParameters
   SpatialVector linear_damping = SpatialVector::Zero();
   SpatialVector quadratic_damping = SpatialVector::Zero();
 
+  // Optional cross-coupling added on top of the diagonal coefficients above, so a
+  // purely diagonal configuration keeps behaving exactly as before. The damping
+  // wrench is -(D_l + diag(linear_damping)) * V_r
+  //            -(D_q + diag(quadratic_damping)) * (abs(V_r) elementwise* V_r).
+  // Only the symmetric part has to be positive semidefinite; that is what makes
+  // the damping dissipative.
+  SpatialMatrix linear_damping_matrix = SpatialMatrix::Zero();
+  SpatialMatrix quadratic_damping_matrix = SpatialMatrix::Zero();
+
   double displaced_volume{0.0};
   Eigen::Vector3d center_of_buoyancy = Eigen::Vector3d::Zero();
 };
+
+/// Slender-cylinder Morison drag coefficients for one link, expressed in the local
+/// spatial [linear; angular] ordering used by HydrodynamicLinkParameters. The link
+/// axis is the local +z axis, matching the generated URDF segment frames.
+///
+/// Translational terms use 0.5 * rho * Cd * A, with A the frontal area seen by that
+/// component. Rotational terms integrate the same strip drag along the half-length,
+/// which yields 0.5 * rho * Cd_transverse * diameter * length^4 / 64 about the two
+/// axes orthogonal to the cylinder.
+SpatialVector makeCylinderMorisonDamping(
+  double fluid_density, double diameter, double length, double transverse_drag_coefficient,
+  double axial_drag_coefficient, double rolling_drag_coefficient = 0.0);
 
 struct HydrodynamicModelParameters
 {
@@ -98,13 +119,19 @@ struct PinocchioHydrodynamicEvaluation
   GeneralizedVector added_mass_force = GeneralizedVector::Zero();
   GeneralizedVector damping_force = GeneralizedVector::Zero();
   GeneralizedVector buoyancy_force = GeneralizedVector::Zero();
+  GeneralizedVector froude_krylov_force = GeneralizedVector::Zero();
   GeneralizedVector total_force = GeneralizedVector::Zero();
 
   std::array<SpatialVector, kNumLinks> relative_twists{};
   std::array<SpatialVector, kNumLinks> local_accelerations{};
+  /// Local acceleration of the link relative to the surrounding fluid. This differs
+  /// from local_accelerations whenever the current is nonzero, because the local
+  /// components of a constant world current still rotate with the link.
+  std::array<SpatialVector, kNumLinks> relative_accelerations{};
   std::array<SpatialVector, kNumLinks> added_mass_wrenches{};
   std::array<SpatialVector, kNumLinks> damping_wrenches{};
   std::array<SpatialVector, kNumLinks> buoyancy_wrenches{};
+  std::array<SpatialVector, kNumLinks> froude_krylov_wrenches{};
   std::array<SpatialVector, kNumLinks> total_wrenches{};
 };
 
@@ -121,10 +148,12 @@ public:
 
   // Evaluates link-local fluid and restoring wrenches and projects them into
   // [base linear, base angular, six internal joint coordinates]. The base
-  // twist and current are expressed in the inertial/world frame. Link-local
-  // accelerations use J * generalized_acceleration when explicit local
-  // accelerations are not supplied; the J-dot term is intentionally left to
-  // the caller because the kinematic package does not expose it yet.
+  // twist and current are expressed in the inertial/world frame.
+  //
+  // This analytic path builds its own Jacobian and has no J-dot, so link-local
+  // accelerations default to J * generalized_acceleration and the caller must pass
+  // explicit_local_accelerations to include J-dot * v. Prefer evaluatePinocchio(),
+  // which gets J-dot from Pinocchio and needs no such help.
   HydrodynamicEvaluation evaluate(
     const KinematicState3D & state,
     const BaseTwist3D & base_twist,
@@ -134,14 +163,25 @@ public:
     const JointAcceleration3D & joint_acceleration = JointAcceleration3D{},
     const std::array<SpatialVector, kNumLinks> * explicit_local_accelerations = nullptr) const;
 
+  /// Added mass acts on the link acceleration relative to the fluid, so a nonzero
+  /// current contributes even when it is constant in the world frame. Supplying
+  /// fluid_current_acceleration_world additionally enables the Froude-Krylov term
+  /// rho * V * a_fluid; it is zero by default and then costs nothing.
   PinocchioHydrodynamicEvaluation evaluatePinocchio(
     const PinocchioKinematicsState & kinematics,
     const GeneralizedVector & velocity,
     const GeneralizedVector & acceleration,
-    const Eigen::Vector3d & fluid_current_world = Eigen::Vector3d::Zero()) const;
+    const Eigen::Vector3d & fluid_current_world = Eigen::Vector3d::Zero(),
+    const Eigen::Vector3d & fluid_current_acceleration_world = Eigen::Vector3d::Zero()) const;
+
+  /// Damping matrices with the diagonal coefficient vectors already folded in.
+  SpatialMatrix effectiveLinearDamping(std::size_t link) const;
+  SpatialMatrix effectiveQuadraticDamping(std::size_t link) const;
 
 private:
   HydrodynamicModelParameters params_;
+  std::array<SpatialMatrix, kNumLinks> linear_damping_{};
+  std::array<SpatialMatrix, kNumLinks> quadratic_damping_{};
   std::string error_;
 };
 

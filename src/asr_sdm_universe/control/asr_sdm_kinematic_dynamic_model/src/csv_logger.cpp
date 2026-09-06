@@ -63,8 +63,17 @@ void CsvLogger::writeHeader()
   for (std::size_t i = 0; i < kNumLinks; ++i) {
     stream_ << ",thrust_actual_" << i << "_N";
   }
+  for (std::size_t i = 0; i < kNumRotors; ++i) {
+    stream_ << ",rotor_thrust_" << i << "_N";
+  }
+  for (std::size_t i = 0; i < kNumRotors; ++i) {
+    stream_ << ",rotor_reaction_torque_" << i << "_Nm";
+  }
   for (std::size_t i = 0; i < kNumJointDofs; ++i) {
     stream_ << ",joint_torque_" << i << "_Nm";
+  }
+  for (std::size_t i = 0; i < kNumJointDofs; ++i) {
+    stream_ << ",joint_passive_torque_" << i << "_Nm";
   }
   for (int link = 0; link < static_cast<int>(kNumLinks); ++link) {
     stream_ << ",damping_l" << link << "_fx_local_N"
@@ -86,6 +95,7 @@ void CsvLogger::writeHeader()
             << ",total_fluid_l" << link << "_my_local_Nm"
             << ",total_fluid_l" << link << "_mz_local_Nm";
   }
+  stream_ << ",balance_residual_norm";
   stream_ << '\n';
   header_written_ = true;
 }
@@ -120,8 +130,17 @@ void CsvLogger::write(
   for (std::size_t i = 0; i < kNumLinks; ++i) {
     stream_ << ',' << output.actuators.actual_segment_thrust(static_cast<Eigen::Index>(i));
   }
+  for (std::size_t i = 0; i < kNumRotors; ++i) {
+    stream_ << ',' << output.actuators.rotor_thrust(static_cast<Eigen::Index>(i));
+  }
+  for (std::size_t i = 0; i < kNumRotors; ++i) {
+    stream_ << ',' << output.actuators.rotor_reaction_torque(static_cast<Eigen::Index>(i));
+  }
   for (std::size_t i = 0; i < kNumJointDofs; ++i) {
     stream_ << ',' << input.joint_torque(static_cast<Eigen::Index>(i));
+  }
+  for (std::size_t i = 0; i < kNumJointDofs; ++i) {
+    stream_ << ',' << output.joints.total_torque(static_cast<Eigen::Index>(i));
   }
   for (std::size_t link = 0; link < kNumLinks; ++link) {
     for (int component = 0; component < kSpatialDofs; ++component) {
@@ -134,6 +153,7 @@ void CsvLogger::write(
       stream_ << ',' << output.hydrodynamics.total_wrenches[link](component);
     }
   }
+  stream_ << ',' << output.balance_residual.norm();
   stream_ << '\n';
   stream_.flush();
   if (!stream_) {

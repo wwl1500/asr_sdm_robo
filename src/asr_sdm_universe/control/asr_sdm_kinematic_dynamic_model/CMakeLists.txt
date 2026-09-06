@@ -44,6 +44,7 @@ add_library(asr_sdm_kinematic_dynamic_model_core STATIC
   src/fluid_force_model.cpp
   src/pinocchio_model.cpp
   src/actuator_model.cpp
+  src/joint_dynamics_model.cpp
   src/underwater_simulator.cpp
   src/underwater_visualization.cpp
   src/csv_logger.cpp
@@ -202,6 +203,12 @@ if(BUILD_TESTING)
     ASR_SDM_GENERATED_URDF="${CMAKE_BINARY_DIR}/../asr_sdm/generated/asr_sdm_segments_4.urdf"
   )
   add_test(NAME underwater_simulator_test COMMAND underwater_simulator_test)
+
+  add_executable(underwater_dynamics_test test/underwater_dynamics_test.cpp)
+  target_link_libraries(underwater_dynamics_test asr_sdm_kinematic_dynamic_model_core)
+  target_compile_definitions(underwater_dynamics_test PRIVATE
+    ASR_SDM_GENERATED_URDF="${CMAKE_BINARY_DIR}/../asr_sdm/generated/asr_sdm_segments_4.urdf")
+  add_test(NAME underwater_dynamics_test COMMAND underwater_dynamics_test)
 
   add_executable(underwater_visualization_test test/underwater_visualization_test.cpp)
   target_link_libraries(underwater_visualization_test asr_sdm_kinematic_dynamic_model_core)
