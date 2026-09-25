@@ -43,6 +43,22 @@ PlanningVisualization::PlanningVisualization(const std::shared_ptr<rclcpp::Node>
   last_frontier_num_ = 0;
 }
 
+void PlanningVisualization::clearAll()
+{
+  visualization_msgs::msg::Marker mk;
+  mk.header.frame_id = "world";
+  mk.header.stamp = node_->now();
+  mk.action = visualization_msgs::msg::Marker::DELETEALL;
+  for (auto & pub : pubs_) {
+    pub->publish(mk);
+  }
+  last_topo_path1_num_ = 0;
+  last_topo_path2_num_ = 0;
+  last_bspline_phase1_num_ = 0;
+  last_bspline_phase2_num_ = 0;
+  last_frontier_num_ = 0;
+}
+
 void PlanningVisualization::displaySphereList(
   const vector<Eigen::Vector3d> & list, double resolution, const Eigen::Vector4d & color, int id,
   int pub_id)

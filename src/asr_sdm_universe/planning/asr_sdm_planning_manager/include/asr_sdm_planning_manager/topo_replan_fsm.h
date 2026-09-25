@@ -12,6 +12,7 @@
 #include <rclcpp/rclcpp.hpp>
 
 #include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <nav_msgs/msg/path.hpp>
 #include <std_msgs/msg/empty.hpp>
@@ -24,6 +25,7 @@
 #include <algorithm>
 #include <iostream>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -64,11 +66,14 @@ private:
 
   /* ROS utils */
   std::shared_ptr<rclcpp::Node> node_;
+  std::mutex mutex_;
   rclcpp::TimerBase::SharedPtr exec_timer_, safety_timer_, vis_timer_, frontier_timer_;
   rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr waypoint_sub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr goalpose_sub_;
+  rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr
+    initialpose_sub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
-  rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr replan_pub_, new_pub_;
+  rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr replan_pub_, new_pub_, stop_pub_;
   rclcpp::Publisher<asr_sdm_planning_manager::msg::Bspline>::SharedPtr bspline_pub_;
 
   /* helper functions */
@@ -79,6 +84,8 @@ private:
   void printFSMExecState();
   void setHeadingStateFromOdom();
   void setHeadingStateFromTraj(double t_cur);
+  // Drop the current target and trajectory. Caller must hold mutex_.
+  void resetPlanning(const std::string & pos_call);
 
   /* ROS functions */
   void execFSMCallback();
@@ -88,6 +95,7 @@ private:
   void acceptTarget(const nav_msgs::msg::Path & path, const Eigen::Vector3d & arrival_heading);
   void waypointCallback(const nav_msgs::msg::Path::SharedPtr msg);
   void goalposeCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
+  void initialposeCallback(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg);
   void odometryCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
 
 public:

@@ -65,6 +65,9 @@ public:
   ~PlanningVisualization() {}
   explicit PlanningVisualization(const std::shared_ptr<rclcpp::Node> & nh);
 
+  // Remove every marker this helper has published, including goals and heading.
+  void clearAll();
+
   // draw basic shapes
   void displaySphereList(
     const vector<Eigen::Vector3d> & list, double resolution, const Eigen::Vector4d & color, int id,

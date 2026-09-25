@@ -24,6 +24,7 @@
 
   <depend>asr_sdm_control_msgs</depend>
   <depend>asr_sdm_esdf_map</depend>
+  <depend>asr_sdm_guidance_planner</depend>
   <depend>asr_sdm_local_path_modifier</depend>
   <depend>bspline</depend>
   <depend>asr_sdm_trajectory_generator</depend>

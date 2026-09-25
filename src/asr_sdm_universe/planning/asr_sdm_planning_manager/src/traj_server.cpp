@@ -8,6 +8,7 @@
 #include <rclcpp/rclcpp.hpp>
 
 #include "geometry_msgs/msg/point.hpp"
+#include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "asr_sdm_control_msgs/msg/robot_command.hpp"
 #include "std_msgs/msg/empty.hpp"
@@ -18,6 +19,7 @@
 #include <chrono>
 #include <cmath>
 #include <memory>
+#include <string>
 #include <thread>
 
 std::shared_ptr<rclcpp::Node> g_node;
@@ -36,6 +38,10 @@ double vel_gain[3] = {3.4, 3.4, 4.0};
 using fast_planner::NonUniformBspline;
 
 bool receive_traj_ = false;
+// Set by /control/initial_pose so a B-spline that was already in flight is not
+// started after the robot has been teleported. Cleared by /planning/stop once
+// the planner has dropped that plan.
+bool reject_bspline_ = false;
 std::vector<fast_planner::NonUniformBspline> traj_;
 double traj_duration_;
 rclcpp::Time start_time_;
@@ -120,8 +126,32 @@ void drawCmd(
   cmd_vis_pub->publish(mk_state);
 }
 
+void clearTravelVis()
+{
+  visualization_msgs::msg::Marker mk;
+  mk.header.frame_id = "world";
+  mk.header.stamp = g_node->now();
+  mk.action = visualization_msgs::msg::Marker::DELETEALL;
+  cmd_vis_pub->publish(mk);
+  traj_pub->publish(mk);
+}
+
+void stopExecution()
+{
+  receive_traj_ = false;
+  traj_.clear();
+  traj_cmd_.clear();
+  traj_real_.clear();
+  clearTravelVis();
+}
+
 void bsplineCallback(const asr_sdm_planning_manager::msg::Bspline::SharedPtr msg)
 {
+  if (reject_bspline_) {
+    SPDLOG_INFO("[Traj server]: ignoring B-spline published before pose reset");
+    return;
+  }
+
   // parse pos traj
 
   Eigen::MatrixXd pos_pts(msg->pos_pts.size(), 3);
@@ -190,6 +220,21 @@ void newCallback(const std_msgs::msg::Empty::SharedPtr msg)
   (void)msg;
   traj_cmd_.clear();
   traj_real_.clear();
+}
+
+void stopCallback(const std_msgs::msg::Empty::SharedPtr msg)
+{
+  (void)msg;
+  stopExecution();
+  reject_bspline_ = false;
+}
+
+void initialPoseCallback(const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg)
+{
+  (void)msg;
+  stopExecution();
+  reject_bspline_ = true;
+  SPDLOG_INFO("[Traj server]: stopped for 2D Pose Estimate");
 }
 
 void odomCallbck(const nav_msgs::msg::Odometry::SharedPtr msg)
@@ -330,11 +375,19 @@ int main(int argc, char ** argv)
   g_node = node;
   asr_sdm::log::initialize("asr_sdm_planning_manager");
 
+  node->declare_parameter("traj_server.initialpose_topic", std::string("/control/initial_pose"));
+  const std::string initialpose_topic =
+    node->get_parameter("traj_server.initialpose_topic").as_string();
+
   auto bspline_sub = node->create_subscription<asr_sdm_planning_manager::msg::Bspline>(
     "planning/bspline", 10, bsplineCallback);
   auto replan_sub =
     node->create_subscription<std_msgs::msg::Empty>("planning/replan", 10, replanCallback);
   auto new_sub = node->create_subscription<std_msgs::msg::Empty>("planning/new", 10, newCallback);
+  auto stop_sub = node->create_subscription<std_msgs::msg::Empty>("planning/stop", 10, stopCallback);
+  auto initialpose_sub =
+    node->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
+      initialpose_topic, 10, initialPoseCallback);
   auto odom_sub =
     node->create_subscription<nav_msgs::msg::Odometry>("odom", 50, odomCallbck);
 

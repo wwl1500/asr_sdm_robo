@@ -1,14 +1,4 @@
-/**
- * File: BRIEF.cpp
- * Author: Dorian Galvez
- * Date: September 2010
- * Description: implementation of BRIEF (Binary Robust Independent
- *   Elementary Features) descriptor by
- *   Michael Calonder, Vincent Lepetitand Pascal Fua
- *   + close binary tests (by Dorian Galvez-Lopez)
- * License: see the LICENSE.txt file
- *
- */
+
 
 #include "BRIEF.h"
 #include "../DUtils/DUtils.h"

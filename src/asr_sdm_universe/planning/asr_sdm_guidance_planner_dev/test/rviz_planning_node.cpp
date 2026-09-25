@@ -716,7 +716,7 @@ std::string RvizPlanningNode::resolvePackageRelativePath(const std::string & pat
 
   try {
     return (std::filesystem::path(
-              ament_index_cpp::get_package_share_directory("asr_sdm_guidance_planner")) /
+              ament_index_cpp::get_package_share_directory("asr_sdm_guidance_planner_dev")) /
             fs_path)
       .string();
   } catch (const std::exception &) {

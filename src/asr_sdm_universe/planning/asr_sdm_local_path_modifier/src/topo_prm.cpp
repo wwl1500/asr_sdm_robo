@@ -3,6 +3,8 @@
 
 #include <asr_sdm_local_path_modifier/topo_prm.h>
 
+#include <asr_sdm_log_collector/log_client.hpp>
+
 #include <thread>
 
 namespace amprobo
@@ -109,9 +111,9 @@ void TopologyPRM::findTopoPaths(
 
   double total_time = graph_time + search_time + short_time + prune_time + select_time;
 
-  std::cout << "\n[Topo]: total time: " << total_time << ", graph: " << graph_time
-            << ", search: " << search_time << ", short: " << short_time << ", prune: " << prune_time
-            << ", select: " << select_time << std::endl;
+  SPDLOG_INFO(
+    "[Topo]: total time: {}, graph: {}, search: {}, short: {}, prune: {}, select: {}", total_time,
+    graph_time, search_time, short_time, prune_time, select_time);
 }
 
 list<GraphNode::Ptr> TopologyPRM::createGraph(Eigen::Vector3d start, Eigen::Vector3d end)
@@ -196,7 +198,7 @@ list<GraphNode::Ptr> TopologyPRM::createGraph(Eigen::Vector3d start, Eigen::Vect
   }
 
   /* print record */
-  std::cout << "[Topo]: sample num: " << sample_num;
+  SPDLOG_INFO("[Topo]: sample num: {}", sample_num);
 
   pruneGraph();
   // std::cout << "[Topo]: node num: " << graph_.size() << std::endl;
@@ -358,7 +360,7 @@ vector<vector<Eigen::Vector3d>> TopologyPRM::pruneEquivalent(
     pruned_paths.push_back(paths[exist_paths_id[i]]);
   }
 
-  std::cout << ", pruned path num: " << pruned_paths.size();
+  SPDLOG_INFO("[Topo]: pruned path num: {}", pruned_paths.size());
 
   return pruned_paths;
 }
@@ -387,7 +389,7 @@ vector<vector<Eigen::Vector3d>> TopologyPRM::selectShortPaths(
       }
     }
   }
-  std::cout << ", select path num: " << short_paths.size();
+  SPDLOG_INFO("[Topo]: select path num: {}", short_paths.size());
 
   /* ---------- merge with start and end segment ---------- */
   for (size_t i = 0; i < short_paths.size(); ++i) {
@@ -670,7 +672,7 @@ vector<vector<Eigen::Vector3d>> TopologyPRM::searchPaths()
     }
     if (reach_max) break;
   }
-  std::cout << ", raw path num: " << raw_paths_.size() << ", " << filter_raw_paths.size();
+  SPDLOG_INFO("[Topo]: raw path num: {}, {}", raw_paths_.size(), filter_raw_paths.size());
 
   raw_paths_ = filter_raw_paths;
 

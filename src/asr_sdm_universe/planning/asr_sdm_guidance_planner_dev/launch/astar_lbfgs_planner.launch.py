@@ -8,7 +8,7 @@ import os
 
 
 def generate_launch_description():
-    pkg_share = get_package_share_directory('asr_sdm_guidance_planner')
+    pkg_share = get_package_share_directory('asr_sdm_guidance_planner_dev')
     default_config = os.path.join(pkg_share, 'config', 'astar_lbfgs_planner.yaml')
     default_rviz_config = os.path.join(pkg_share, 'rviz', 'astar_esdf_planner.rviz')
 
@@ -37,7 +37,7 @@ def generate_launch_description():
     )
 
     planner_node = Node(
-        package='asr_sdm_guidance_planner',
+        package='asr_sdm_guidance_planner_dev',
         executable='rviz_astar_lbfgs_planner',
         name='astar_lbfgs_path_planner',
         output='screen',

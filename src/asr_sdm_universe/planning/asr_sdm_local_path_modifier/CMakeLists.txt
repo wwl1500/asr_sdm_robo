@@ -34,6 +34,7 @@ option(BUILD_LOCAL_PATH_MODIFIER_TEST_NODE "Build RViz test node for local path 
 find_package(ament_cmake REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(asr_sdm_esdf_map REQUIRED)
+find_package(asr_sdm_log_collector REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(visualization_msgs REQUIRED)
@@ -42,7 +43,6 @@ find_package(OpenCV REQUIRED)
 
 add_library(${PROJECT_NAME} SHARED
   src/topo_path_modifier.cpp
-  src/astar.cpp
   src/topo_prm.cpp
 )
 
@@ -60,9 +60,9 @@ target_include_directories(${PROJECT_NAME} PUBLIC ${OpenCV_INCLUDE_DIRS})
 
 # NOTE:
 # asr_sdm_esdf_map exports a broken imported target (asr_sdm_esdf_map::obj_generator),
-# so it cannot be used via ament_target_dependencies(). The legacy Astar / TopologyPRM
-# sources pull in rclcpp and message headers transitively through the esdf_map env
-# headers, so those dependencies are declared explicitly to get their include paths.
+# so it cannot be used via ament_target_dependencies(). The legacy TopologyPRM sources
+# pull in rclcpp and message headers transitively through the esdf_map env headers, so
+# those dependencies are declared explicitly to get their include paths.
 ament_target_dependencies(${PROJECT_NAME}
   rclcpp
   geometry_msgs
@@ -72,11 +72,12 @@ ament_target_dependencies(${PROJECT_NAME}
 
 target_link_libraries(${PROJECT_NAME}
   Eigen3::Eigen
+  asr_sdm_log_collector::asr_sdm_log_client
 )
 
-# The legacy Astar / TopologyPRM sources call into EDTEnvironment / SDFMap / RayCaster,
-# which live in the asr_sdm_esdf_map library. Link it directly (its ament target export
-# is broken, but the library imported target itself is usable).
+# The legacy TopologyPRM sources call into EDTEnvironment / SDFMap / RayCaster, which live
+# in the asr_sdm_esdf_map library. Link it directly (its ament target export is broken, but
+# the library imported target itself is usable).
 if(TARGET asr_sdm_esdf_map::asr_sdm_esdf_map)
   target_link_libraries(${PROJECT_NAME} asr_sdm_esdf_map::asr_sdm_esdf_map)
 endif()
@@ -150,5 +151,6 @@ endif()
 
 ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
 ament_export_include_directories(include)
-ament_export_dependencies(Eigen3 asr_sdm_esdf_map rclcpp geometry_msgs visualization_msgs)
+ament_export_dependencies(
+  Eigen3 asr_sdm_esdf_map asr_sdm_log_collector rclcpp geometry_msgs visualization_msgs)
 ament_package()

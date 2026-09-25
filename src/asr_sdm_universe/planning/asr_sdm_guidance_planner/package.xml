@@ -1,34 +1,25 @@
 <?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematype="xml"?>
 <package format="3">
   <name>asr_sdm_guidance_planner</name>
   <version>0.1.0</version>
-  <description>C++ guidance planner library plus RViz test node for global start/goal waypoint generation.</description>
+  <description>Front-end guidance path search library. Provides grid-based A* and a 3D Dubins guidance planner used to generate a geometric guide path.</description>
   <maintainer email="carveyrtrail@163.com">Willianms</maintainer>
   <license>MIT</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <!-- Core library dependencies. -->
-  <depend>asr_sdm_lbfgs_solver</depend>
-  <depend>asr_sdm_esdf_map</depend>
   <depend>eigen</depend>
+  <depend>boost</depend>
+  <depend>libpcl-all-dev</depend>
+  <depend>asr_sdm_esdf_map</depend>
+  <depend>dubins_path_3d</depend>
   <depend>rclcpp</depend>
 
-  <!-- RViz test node dependencies. They are intentionally not exported by CMake targets. -->
-  <build_depend>ament_index_cpp</build_depend>
-  <build_depend>geometry_msgs</build_depend>
-  <build_depend>nav_msgs</build_depend>
-  <build_depend>sensor_msgs</build_depend>
-  <build_depend>visualization_msgs</build_depend>
-  <build_depend>pcl_conversions</build_depend>
-
-  <exec_depend>ament_index_cpp</exec_depend>
-  <exec_depend>geometry_msgs</exec_depend>
-  <exec_depend>nav_msgs</exec_depend>
-  <exec_depend>sensor_msgs</exec_depend>
-  <exec_depend>visualization_msgs</exec_depend>
-  <exec_depend>pcl_conversions</exec_depend>
-  <exec_depend>rviz2</exec_depend>
+  <!-- Pulled in transitively by the asr_sdm_esdf_map environment headers. -->
+  <depend>geometry_msgs</depend>
+  <depend>visualization_msgs</depend>
+  <depend>cv_bridge</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

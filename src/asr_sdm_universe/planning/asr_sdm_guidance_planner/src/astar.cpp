@@ -1,7 +1,7 @@
 // Copyright (c) Amphibious Robotics.
 // Grid-based A* local path search implementation.
 
-#include <asr_sdm_local_path_modifier/astar.h>
+#include <asr_sdm_guidance_planner/astar.h>
 
 #include <sstream>
 
@@ -26,11 +26,7 @@ int Astar::search(Eigen::Vector3d start_pt, Eigen::Vector3d end_pt, bool dynamic
   cur_node->index = posToIndex(start_pt);
   cur_node->g_score = 0.0;
 
-  Eigen::Vector3d end_state(6);
-  Eigen::Vector3i end_index;
-  double time_to_goal;
-
-  end_index = posToIndex(end_pt);
+  const Eigen::Vector3i end_index = posToIndex(end_pt);
   cur_node->f_score = lambda_heu_ * getEuclHeu(cur_node->position, end_pt);
   cur_node->node_state = IN_OPEN_SET;
 
@@ -46,7 +42,6 @@ int Astar::search(Eigen::Vector3d start_pt, Eigen::Vector3d end_pt, bool dynamic
   } else
     expanded_nodes_.insert(cur_node->index, cur_node);
 
-  NodePtr neighbor = NULL;
   NodePtr terminate_node = NULL;
 
   /* ---------- search loop ---------- */
@@ -84,39 +79,42 @@ int Astar::search(Eigen::Vector3d start_pt, Eigen::Vector3d end_pt, bool dynamic
 
     /* ---------- init neighbor expansion ---------- */
 
-    Eigen::Vector3d cur_pos = cur_node->position;
+    const Eigen::Vector3d cur_pos = cur_node->position;
     Eigen::Vector3d pro_pos;
-    double pro_t;
-
-    vector<Eigen::Vector3d> inputs;
-    Eigen::Vector3d d_pos;
 
     /* ---------- expansion loop ---------- */
-    for (double dx = -resolution_; dx <= resolution_ + 1e-3; dx += resolution_)
-      for (double dy = -resolution_; dy <= resolution_ + 1e-3; dy += resolution_)
-        for (double dz = -resolution_; dz <= resolution_ + 1e-3; dz += resolution_) {
-          d_pos << dx, dy, dz;
+    for (int dx = -1; dx <= 1; ++dx)
+      for (int dy = -1; dy <= 1; ++dy)
+        for (int dz = -1; dz <= 1; ++dz) {
+          if (dx == 0 && dy == 0 && dz == 0) continue;
 
-          if (d_pos.norm() < 1e-3) continue;
-
-          pro_pos = cur_pos + d_pos;
+          /* Step on the index grid and read the position back off it. Walking
+           * the position instead, by adding a resolution that is not exactly
+           * representable, lets the rounding error accumulate along whatever
+           * route reached this node; posToIndex() then floors a product that
+           * is an exact integer in exact arithmetic, so a cell approached from
+           * a slightly short path claims the index of its neighbour. The
+           * collisions close cells that were never expanded, and the frontier
+           * dies long before the goal. Cell centres are half a cell away from
+           * every floor() boundary, so the two mappings stay consistent. */
+          const Eigen::Vector3i pro_id = cur_node->index + Eigen::Vector3i(dx, dy, dz);
+          pro_pos = indexToPos(pro_id);
 
           /* ---------- check if in feasible space ---------- */
           /* inside map range */
           if (
-            pro_pos(0) <= origin_(0) || pro_pos(0) >= map_size_3d_(0) || pro_pos(1) <= origin_(1) ||
-            pro_pos(1) >= map_size_3d_(1) || pro_pos(2) <= origin_(2) ||
-            pro_pos(2) >= map_size_3d_(2)) {
+            (pro_pos.array() <= origin_.array()).any() ||
+            (pro_pos.array() >= map_max_.array()).any()) {
             // cout << "outside map" << endl;
             continue;
           }
 
           /* not in close set */
-          Eigen::Vector3i pro_id = posToIndex(pro_pos);
-          int pro_t_id = timeToIndex(pro_t);
-
-          NodePtr pro_node =
-            dynamic ? expanded_nodes_.find(pro_id, pro_t_id) : expanded_nodes_.find(pro_id);
+          // The successor inherits the time its node would be stamped with
+          // below, so the lookup and the insert agree on the key.
+          NodePtr pro_node = dynamic
+                               ? expanded_nodes_.find(pro_id, timeToIndex(cur_node->time + 1.0))
+                               : expanded_nodes_.find(pro_id);
 
           if (pro_node != NULL && pro_node->node_state == IN_CLOSE_SET) {
             // cout << "in closeset" << endl;
@@ -134,7 +132,8 @@ int Astar::search(Eigen::Vector3d start_pt, Eigen::Vector3d end_pt, bool dynamic
           }
 
           /* ---------- compute cost ---------- */
-          double time_to_goal, tmp_g_score, tmp_f_score;
+          const Eigen::Vector3d d_pos = pro_pos - cur_pos;
+          double tmp_g_score, tmp_f_score;
           tmp_g_score = d_pos.squaredNorm() + cur_node->g_score;
           tmp_f_score = tmp_g_score + lambda_heu_ * getEuclHeu(pro_pos, end_pt);
 
@@ -153,7 +152,7 @@ int Astar::search(Eigen::Vector3d start_pt, Eigen::Vector3d end_pt, bool dynamic
             open_set_.push(pro_node);
 
             if (dynamic)
-              expanded_nodes_.insert(pro_id, pro_node->time, pro_node);
+              expanded_nodes_.insert(pro_id, pro_node->time_idx, pro_node);
             else
               expanded_nodes_.insert(pro_id, pro_node);
 
@@ -186,19 +185,20 @@ int Astar::search(Eigen::Vector3d start_pt, Eigen::Vector3d end_pt, bool dynamic
   return NO_PATH;
 }
 
-void Astar::setParam(const std::shared_ptr<rclcpp::Node> & nh)
+void Astar::setParam(const std::shared_ptr<rclcpp::Node> & nh, const std::string & ns)
 {
   node_ = nh;
-  node_->declare_parameter("astar.resolution_astar", -1.0);
-  node_->declare_parameter("astar.time_resolution", -1.0);
-  node_->declare_parameter("astar.lambda_heu", -1.0);
-  node_->declare_parameter("astar.margin", -1.0);
-  node_->declare_parameter("astar.allocate_num", -1);
-  resolution_ = node_->get_parameter("astar.resolution_astar").as_double();
-  time_resolution_ = node_->get_parameter("astar.time_resolution").as_double();
-  lambda_heu_ = node_->get_parameter("astar.lambda_heu").as_double();
-  margin_ = node_->get_parameter("astar.margin").as_double();
-  allocate_num_ = node_->get_parameter("astar.allocate_num").as_int();
+  const std::string p = ns + ".";
+  node_->declare_parameter(p + "resolution_astar", -1.0);
+  node_->declare_parameter(p + "time_resolution", -1.0);
+  node_->declare_parameter(p + "lambda_heu", -1.0);
+  node_->declare_parameter(p + "margin", -1.0);
+  node_->declare_parameter(p + "allocate_num", -1);
+  resolution_ = node_->get_parameter(p + "resolution_astar").as_double();
+  time_resolution_ = node_->get_parameter(p + "time_resolution").as_double();
+  lambda_heu_ = node_->get_parameter(p + "lambda_heu").as_double();
+  margin_ = node_->get_parameter(p + "margin").as_double();
+  allocate_num_ = node_->get_parameter(p + "allocate_num").as_int();
   tie_breaker_ = 1.0 + 1.0 / 10000;
 
   cout << "margin:" << margin_ << endl;
@@ -270,9 +270,11 @@ void Astar::init()
   this->inv_resolution_ = 1.0 / resolution_;
   inv_time_resolution_ = 1.0 / time_resolution_;
   edt_environment_->getMapRegion(origin_, map_size_3d_);
+  map_max_ = origin_ + map_size_3d_;
 
   cout << "origin_: " << origin_.transpose() << endl;
   cout << "map size: " << map_size_3d_.transpose() << endl;
+  cout << "map max: " << map_max_.transpose() << endl;
 
   /* ---------- pre-allocated node ---------- */
   path_node_pool_.resize(allocate_num_);
@@ -314,6 +316,11 @@ std::vector<NodePtr> Astar::getVisitedNodes()
   return visited;
 }
 
+Eigen::Vector3d Astar::indexToPos(const Eigen::Vector3i & idx)
+{
+  return origin_ + (idx.cast<double>().array() + 0.5).matrix() * resolution_;
+}
+
 Eigen::Vector3i Astar::posToIndex(Eigen::Vector3d pt)
 {
   Vector3i idx = ((pt - origin_) * inv_resolution_).array().floor().cast<int>();
@@ -327,7 +334,7 @@ Eigen::Vector3i Astar::posToIndex(Eigen::Vector3d pt)
 
 int Astar::timeToIndex(double time)
 {
-  int idx = floor((time - time_origin_) * inv_time_resolution_);
+  return floor((time - time_origin_) * inv_time_resolution_);
 }
 
 }  // namespace amprobo

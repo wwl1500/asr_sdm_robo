@@ -1,12 +1,4 @@
-/*	
- * File: Random.cpp
- * Project: DUtils library
- * Author: Dorian Galvez-Lopez
- * Date: April 2010
- * Description: manages pseudo-random numbers
- * License: see the LICENSE.txt file
- *
- */
+
 
 #include "Random.h"
 #include "Timestamp.h"

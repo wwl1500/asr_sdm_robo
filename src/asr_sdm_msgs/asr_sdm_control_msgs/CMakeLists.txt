@@ -39,6 +39,10 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Odometry.msg"
   "msg/PolynomialTrajectory.msg"
   "msg/LQRTrajectory.msg"
+  "msg/Configuration.msg"
+  "msg/PathSample.msg"
+  "msg/DubinsPath.msg"
+  "srv/PlanPath.srv"
   DEPENDENCIES
   std_msgs
   geometry_msgs

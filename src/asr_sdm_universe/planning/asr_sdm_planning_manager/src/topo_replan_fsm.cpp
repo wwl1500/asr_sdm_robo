@@ -6,6 +6,8 @@
 
 #include <chrono>
 #include <functional>
+#include <mutex>
+#include <string>
 
 namespace amprobo
 {
@@ -29,11 +31,14 @@ void TopoReplanFSM::init(const std::shared_ptr<rclcpp::Node> & nh)
   node_->declare_parameter("fsm.thresh_no_replan", -1.0);
   node_->declare_parameter("fsm.waypoint_num", -1);
   node_->declare_parameter("fsm.act_map", false);
+  node_->declare_parameter("fsm.initialpose_topic", std::string("/control/initial_pose"));
   flight_type_ = node_->get_parameter("fsm.flight_type").as_string();
   replan_time_threshold_ = node_->get_parameter("fsm.thresh_replan").as_double();
   replan_distance_threshold_ = node_->get_parameter("fsm.thresh_no_replan").as_double();
   waypoint_num_ = node_->get_parameter("fsm.waypoint_num").as_int();
   act_map_ = node_->get_parameter("fsm.act_map").as_bool();
+  const std::string initialpose_topic =
+    node_->get_parameter("fsm.initialpose_topic").as_string();
 
   for (int i = 0; i < waypoint_num_; i++) {
     node_->declare_parameter("fsm.waypoint" + to_string(i) + "_x", -1.0);
@@ -60,18 +65,38 @@ void TopoReplanFSM::init(const std::shared_ptr<rclcpp::Node> & nh)
     std::bind(&TopoReplanFSM::waypointCallback, this, std::placeholders::_1));
   goalpose_sub_ = node_->create_subscription<geometry_msgs::msg::PoseStamped>(
     "/goal_pose", 1, std::bind(&TopoReplanFSM::goalposeCallback, this, std::placeholders::_1));
+  initialpose_sub_ = node_->create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
+    initialpose_topic, 10,
+    std::bind(&TopoReplanFSM::initialposeCallback, this, std::placeholders::_1));
   odom_sub_ = node_->create_subscription<nav_msgs::msg::Odometry>(
     "odom", 1, std::bind(&TopoReplanFSM::odometryCallback, this, std::placeholders::_1));
 
   replan_pub_ = node_->create_publisher<std_msgs::msg::Empty>("/planning/replan", 20);
   new_pub_ = node_->create_publisher<std_msgs::msg::Empty>("/planning/new", 20);
+  stop_pub_ = node_->create_publisher<std_msgs::msg::Empty>("/planning/stop", 20);
   bspline_pub_ =
     node_->create_publisher<asr_sdm_planning_manager::msg::Bspline>("/planning/bspline", 20);
+}
+
+void TopoReplanFSM::resetPlanning(const std::string & pos_call)
+{
+  have_target_ = false;
+  trigger_ = false;
+  collide_ = false;
+  current_wp_ = 0;
+  end_heading_.setZero();
+  end_vel_.setZero();
+  planning_manager_->resetPlan();
+  visualization_->clearAll();
+  new_pub_->publish(std_msgs::msg::Empty());
+  stop_pub_->publish(std_msgs::msg::Empty());
+  changeFSMExecState(have_odom_ ? WAIT_TARGET : INIT, pos_call);
 }
 
 void TopoReplanFSM::acceptTarget(
   const nav_msgs::msg::Path & path, const Eigen::Vector3d & arrival_heading)
 {
+  std::lock_guard<std::mutex> lock(mutex_);
   if (path.poses[0].pose.position.z < -0.1) return;
   SPDLOG_INFO("Triggered!");
 
@@ -145,8 +170,21 @@ void TopoReplanFSM::goalposeCallback(const geometry_msgs::msg::PoseStamped::Shar
   acceptTarget(path, heading);
 }
 
+void TopoReplanFSM::initialposeCallback(
+  const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg)
+{
+  (void)msg;
+  // Wait for any in-flight plan to finish publishing, then drop it. traj_server
+  // already stopped on the same /control/initial_pose; /planning/stop lets it
+  // accept the next goal's B-spline and reject the one that just finished.
+  std::lock_guard<std::mutex> lock(mutex_);
+  resetPlanning("POSE");
+  SPDLOG_INFO("planning reset from 2D Pose Estimate");
+}
+
 void TopoReplanFSM::odometryCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
 {
+  std::lock_guard<std::mutex> lock(mutex_);
   odom_pos_(0) = msg->pose.pose.position.x;
   odom_pos_(1) = msg->pose.pose.position.y;
   odom_pos_(2) = msg->pose.pose.position.z;
@@ -219,6 +257,7 @@ void TopoReplanFSM::printFSMExecState()
 
 void TopoReplanFSM::execFSMCallback()
 {
+  std::lock_guard<std::mutex> lock(mutex_);
   static int fsm_num = 0;
   fsm_num++;
   if (fsm_num == 100) {
@@ -345,6 +384,7 @@ void TopoReplanFSM::execFSMCallback()
 
 void TopoReplanFSM::checkCollisionCallback()
 {
+  std::lock_guard<std::mutex> lock(mutex_);
   LocalTrajData * info = &planning_manager_->local_data_;
 
   /* ---------- check goal safety ---------- */

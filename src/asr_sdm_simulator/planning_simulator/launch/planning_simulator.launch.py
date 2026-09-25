@@ -35,6 +35,7 @@ def generate_launch_description():
     control = LaunchConfiguration("control")
     teleop = LaunchConfiguration("teleop")
     planning = LaunchConfiguration("planning")
+    log_collector = LaunchConfiguration("log_collector")
 
     sim_odom = "/control/asr_sdm/odom"
     vins_odom = "/localization/video_inertial_navigation_systems/odometry"
@@ -63,6 +64,11 @@ def generate_launch_description():
         default_value="disable",
         choices=["enable", "disable"],
         description="Start asr_sdm_planning_manager planning chain")
+    log_collector_arg = DeclareLaunchArgument(
+        "log_collector",
+        default_value="enable",
+        choices=["enable", "disable"],
+        description="Start asr_sdm_log_collector (merged rotating logs)")
 
     random_map_sensing = Node(
         package="asr_sdm_map_generator",
@@ -166,6 +172,13 @@ def generate_launch_description():
         launch_arguments={"odom_topic": sim_odom}.items(),
         condition=_enabled(planning),
     )
+    log_collector_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(
+                get_package_share_directory("asr_sdm_log_collector"),
+                "launch", "asr_sdm_log_collector.launch.py")),
+        condition=_enabled(log_collector),
+    )
 
     rviz = Node(
         package="rviz2",
@@ -180,6 +193,7 @@ def generate_launch_description():
         control_arg,
         teleop_arg,
         planning_arg,
+        log_collector_arg,
         random_map_sensing,
         odom_visualization,
         odom_visualization_control,
@@ -188,5 +202,6 @@ def generate_launch_description():
         control_launch,
         teleop_launch,
         planning_launch,
+        log_collector_launch,
         rviz,
     ])

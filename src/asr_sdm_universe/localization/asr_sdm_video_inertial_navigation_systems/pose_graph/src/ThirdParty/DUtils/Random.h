@@ -1,12 +1,4 @@
-/*	
- * File: Random.h
- * Project: DUtils library
- * Author: Dorian Galvez-Lopez
- * Date: April 2010, November 2011
- * Description: manages pseudo-random numbers
- * License: see the LICENSE.txt file
- *
- */
+
 
 #pragma once
 #ifndef __D_RANDOM__

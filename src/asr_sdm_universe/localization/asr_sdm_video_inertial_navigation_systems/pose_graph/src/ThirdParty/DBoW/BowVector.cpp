@@ -1,11 +1,4 @@
-/**
- * File: BowVector.cpp
- * Date: March 2011
- * Author: Dorian Galvez-Lopez
- * Description: bag of words vector
- * License: see the LICENSE.txt file
- *
- */
+
 
 #include <iostream>
 #include <fstream>

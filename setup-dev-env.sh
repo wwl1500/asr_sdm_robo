@@ -186,6 +186,9 @@ install_common() {
         glslang-dev
         glslang-tools
         libxcb1-dev
+        # Point Cloud Library and optional io pcap support
+        libpcl-dev
+        libpcap-dev
         # Everyday CLI tools
         vim
         tmux

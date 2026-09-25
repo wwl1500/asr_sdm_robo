@@ -354,6 +354,16 @@ void NonUniformBspline::parameterizeToBspline(const double& ts, const vector<Eig
 
   int K = point_set.size();
 
+  // Dense (K+4)×(K+2) fit. A folded global polynomial can hand us 1e5
+  // samples; refuse before asking for tens of GB.
+  constexpr int kMaxPointSet = 128;
+  if (K > kMaxPointSet) {
+    RCLCPP_ERROR(rclcpp::get_logger("non_uniform_bspline"),
+                 "[B-spline]: point set size %d exceeds %d, refuse dense parameterization.", K,
+                 kMaxPointSet);
+    return;
+  }
+
   // write A
   Eigen::Vector3d prow(3), vrow(3), arow(3);
   prow << 1, 4, 1;

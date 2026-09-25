@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>dubins_path_3d</name>
+  <version>1.0.0</version>
+  <description>
+    Header and library for 3D Dubins path planning for a vehicle with bounded
+    pitch and yaw rates. Connects the osculating spheres of two configurations
+    with a cylindrical envelope, a cross-tangent plane or an intermediary
+    sphere, and returns the shortest feasible path. ROS 2 interfaces are in
+    asr_sdm_control_msgs.
+  </description>
+  <maintainer email="deepakprakashkumar@tamu.edu">Deepak Prakash Kumar</maintainer>
+  <license>Apache-2.0</license>
+  <url type="repository">https://github.com/DeepakPrakashKumar/3D_Dubins_sphere_cylinder</url>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>eigen3_cmake_module</buildtool_depend>
+  <buildtool_export_depend>eigen3_cmake_module</buildtool_export_depend>
+
+  <depend>eigen</depend>
+  <depend>asr_sdm_control_msgs</depend>
+  <depend>geometry_msgs</depend>
+
+  <test_depend>ament_cmake_gtest</test_depend>
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

@@ -716,7 +716,6 @@ UTMLetterDesignator(double latitude)
 {
     // This routine determines the correct UTM letter designator for the given latitude
     // returns 'Z' if latitude is outside the UTM limits of 84N to 80S
-    // Written by Chuck Gantz- chuck.gantz@globalstar.com
     char letterDesignator;
 
     if ((84.0 >= latitude) && (latitude >= 72.0)) letterDesignator = 'X';
@@ -752,7 +751,6 @@ LLtoUTM(double latitude, double longitude,
     // East Longitudes are positive, West longitudes are negative.
     // North latitudes are positive, South latitudes are negative
     // Lat and Long are in decimal degrees
-    // Written by Chuck Gantz- chuck.gantz@globalstar.com
 
     double k0 = 0.9996;
 
@@ -832,7 +830,6 @@ UTMtoLL(double utmNorthing, double utmEasting, const std::string& utmZone,
     // East Longitudes are positive, West longitudes are negative.
     // North latitudes are positive, South latitudes are negative
     // Lat and Long are in decimal degrees.
-    // Written by Chuck Gantz- chuck.gantz@globalstar.com
 
     double k0 = 0.9996;
     double eccPrimeSquared;

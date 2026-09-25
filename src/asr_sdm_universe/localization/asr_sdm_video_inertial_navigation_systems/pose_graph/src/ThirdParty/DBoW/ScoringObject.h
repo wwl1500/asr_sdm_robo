@@ -1,7 +1,7 @@
 /**
  * File: ScoringObject.h
  * Date: November 2011
- * Author: Dorian Galvez-Lopez
+ * Author: ASR-SDM Team
  * Description: functions to compute bow scores 
  * License: see the LICENSE.txt file
  *

@@ -3,7 +3,7 @@
 
 #include <asr_sdm_esdf_map/sdf_map.hpp>
 
-#include <path_searching/kinodynamic_astar.h>
+#include <asr_sdm_guidance_planner/kinodynamic_astar.h>
 
 #include <sstream>
 

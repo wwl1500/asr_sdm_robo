@@ -128,11 +128,19 @@ private:
   double tie_breaker_;
   /* map */
   double resolution_, inv_resolution_, time_resolution_, inv_time_resolution_;
-  Eigen::Vector3d origin_, map_size_3d_;
+  // origin_ is the near corner of the map and map_size_3d_ its extent, so the
+  // far corner is their sum. map_max_ caches it because the extent alone is
+  // not a position and comparing one against the other is what the search used
+  // to do.
+  Eigen::Vector3d origin_, map_size_3d_, map_max_;
   double time_origin_;
 
   /* helper */
   Eigen::Vector3i posToIndex(Eigen::Vector3d pt);
+  // Centre of a cell. Expansion steps on the index grid and derives the
+  // position from it, so that repeated additions of an inexact resolution
+  // cannot drift a cell onto its neighbour's index.
+  Eigen::Vector3d indexToPos(const Eigen::Vector3i & idx);
   int timeToIndex(double time);
   void retrievePath(NodePtr end_node);
 
@@ -148,7 +156,7 @@ public:
   enum { REACH_END = 1, NO_PATH = 2 };
 
   /* main API */
-  void setParam(const std::shared_ptr<rclcpp::Node> & nh);
+  void setParam(const std::shared_ptr<rclcpp::Node> & nh, const std::string & ns = "astar");
   void init();
   void reset();
   int search(

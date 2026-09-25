@@ -1,7 +1,7 @@
 /**
  * File: TemplatedVocabulary.h
  * Date: February 2011
- * Author: Dorian Galvez-Lopez
+ * Author: ASR-SDM Team
  * Description: templated vocabulary 
  * License: see the LICENSE.txt file
  *

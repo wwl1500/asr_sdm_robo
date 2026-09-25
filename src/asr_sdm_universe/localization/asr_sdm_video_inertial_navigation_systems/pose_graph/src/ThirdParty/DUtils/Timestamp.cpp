@@ -1,14 +1,4 @@
-/*
- * File: Timestamp.cpp
- * Author: Dorian Galvez-Lopez
- * Date: March 2009
- * Description: timestamping functions
- * 
- * Note: in windows, this class has a 1ms resolution
- *
- * License: see the LICENSE.txt file
- *
- */
+
 
 #include <cstdio>
 #include <cstdlib>

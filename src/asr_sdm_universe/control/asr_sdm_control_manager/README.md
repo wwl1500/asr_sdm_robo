@@ -24,7 +24,7 @@ Main link with teleop / planning: `/control/asr_sdm/robot_cmd`.
 | Topic | Type | Role |
 |---|---|---|
 | `/control/asr_sdm/robot_cmd` | `asr_sdm_control_msgs/msg/RobotCommand` | Velocity command in `vel` (teleop / planning) |
-| `/control/initial_pose` | `geometry_msgs/msg/PoseWithCovarianceStamped` | Reset pose (e.g. RViz 2D Pose Estimate) |
+| `/control/initial_pose` | `geometry_msgs/msg/PoseWithCovarianceStamped` | Reset pose (e.g. RViz 2D Pose Estimate). `asr_sdm_planning_manager` listens on the same topic and drops the current plan |
 
 **Publish**
 
@@ -155,7 +155,7 @@ Override with `--ros-args -p name:=value` or edit the yaml.
 | Topic | 类型 | 用途 |
 |---|---|---|
 | `/control/asr_sdm/robot_cmd` | `asr_sdm_control_msgs/msg/RobotCommand` | 速度指令在 `vel`（teleop / planning） |
-| `/control/initial_pose` | `geometry_msgs/msg/PoseWithCovarianceStamped` | 重置位姿（如 RViz 2D Pose Estimate） |
+| `/control/initial_pose` | `geometry_msgs/msg/PoseWithCovarianceStamped` | 重置位姿（如 RViz 2D Pose Estimate）。`asr_sdm_planning_manager` 订阅同一话题并丢掉当前规划 |
 
 **Publish（输出）**
 

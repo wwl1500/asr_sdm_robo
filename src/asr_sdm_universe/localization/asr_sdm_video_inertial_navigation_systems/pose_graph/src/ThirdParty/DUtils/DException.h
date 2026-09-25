@@ -1,12 +1,4 @@
-/*	
- * File: DException.h
- * Project: DUtils library
- * Author: Dorian Galvez-Lopez
- * Date: October 6, 2009
- * Description: general exception of the library
- * License: see the LICENSE.txt file
- *
- */
+
 
 #pragma once
 

@@ -2,6 +2,8 @@
   ros__parameters:
     fsm:
       flight_type: "MANUAL_TARGET"
+      # Same topic as asr_sdm_control_manager: RViz 2D Pose Estimate resets both.
+      initialpose_topic: /control/initial_pose
       thresh_replan: 0.5
       thresh_no_replan: 2.0
       waypoint_num: 2
@@ -19,15 +21,15 @@
     esdf_map:
       resolution: 0.1
       map_size_x: 40.0
-      map_size_y: 20.0
-      map_size_z: 5.0
+      map_size_y: 40.0
+      map_size_z: 10.0
       local_update_range_x: 5.5
       local_update_range_y: 5.5
       local_update_range_z: 4.5
       obstacles_inflation: 0.099
       local_bound_inflate: 0.5
       local_map_margin: 50
-      ground_height: -1.0
+      ground_height: -5.0
       cx: 321.04638671875
       cy: 243.44969177246094
       fx: 387.229248046875
@@ -59,22 +61,22 @@
       enable_simulation_cloud_odom: true
 
     manager:
-      max_vel: 0.5
+      max_vel: 0.4
       max_acc: 0.4
       max_jerk: 0.2
       dynamic_environment: 0
-      local_segment_length: 7.0
+      local_segment_length: 6.0
       clearance_threshold: 0.2
       control_points_distance: 0.3
-      use_geometric_path: false
+      use_guidance_planner: true
       use_topo_path: true
       use_optimization: true
       # The head is driven as a nonholonomic body: yaw and pitch follow the
       # trajectory tangent, so their limits constrain the position trajectory.
       nonholonomic: true
       # Mirror the rate limits enforced by asr_sdm_control_manager.
-      max_yaw_rate: 0.5
-      max_pitch_rate: 0.5
+      max_yaw_rate: 0.2
+      max_pitch_rate: 0.2
       min_vel: 0.1
       # Largest factor by which refinement may stretch the duration of a local
       # segment. A topological detour is longer than the segment it replaces but
@@ -82,10 +84,24 @@
       # time. Set to 1.01 to leave the timing almost untouched.
       max_time_lengthen_ratio: 1.5
 
+    # 3D Dubins front end used when manager.use_guidance_planner is true.
+    # Turning radii match max_vel / max_yaw_rate and max_vel / max_pitch_rate.
+    guidance_planner:
+      dubins_path_3d:
+        yaw_radius: 1.0
+        pitch_radius: 1.0
+        sample_ds: 0.1
+        margin: 0.2
+        position_tol: 0.05
+        tight_turn_radius: -1.0
+        location_samples: 15
+        heading_samples: 15
+        num_threads: 0
+
     topo_prm:
       sample_inflate_x: 1.0
-      sample_inflate_y: 3.5
-      sample_inflate_z: 1.0
+      sample_inflate_y: 3.0
+      sample_inflate_z: 3.0
       clearance: 0.3
       max_sample_time: 0.005
       max_sample_num: 2000
@@ -97,44 +113,22 @@
       parallel_shortcut: true
 
     optimization:
-      lambda1: 10.0
-      lambda2: 5.0
-      # Velocity and acceleration feasibility. This has to stay above zero now
-      # that a detour is allowed to ask for more time than it inherited:
-      # max_time_lengthen_ratio bounds the stretch, this term does the rest.
-      lambda3: 1.0
-      lambda4: 0.001
-      lambda5: 1.5
-      lambda6: 10.0
-      lambda7: 20.0
-      # Holds the refined trajectory on the shape the selected topological
-      # candidate converged to. Raise it if the refinement still cuts the corner
-      # of a detour, lower it if the refinement can no longer open up clearance.
-      lambda_anchor: 2.0
-      # Nonholonomic heading penalties on the position trajectory. Each weight
-      # pairs with the limit of the same name above and each penalty is
-      # normalized by that limit, so the weights are directly comparable to
-      # lambda1 and to each other. Yaw rate and pitch rate are evaluated
-      # equivalently, so they share the same weight by default.
-      lambda_yaw_rate: 10.0
-      lambda_pitch_rate: 10.0
-      lambda_min_vel: 1.0
-      dist0: 0.4
-      dist1: 0.0
-      # Budgets for the L-BFGS solver. max_iteration_num* bounds the number of
-      # cost evaluations and max_iteration_time* the wall-clock time; both are
-      # checked once per solver iteration. Index 1 is the path-guided phase,
-      # index 2 the full optimization.
-      max_iteration_num1: 2
-      max_iteration_num2: 300
-      max_iteration_time1: 0.0001
-      max_iteration_time2: 0.005
-      order: 3
-
-    bspline:
-      limit_vel: 3.0
-      limit_acc: 2.0
-      limit_ratio: 1.1
+      lambda1: 10.0              # smoothness
+      lambda2: 3.0               # clearance
+      lambda3: 1.0               # vel / acc feasibility
+      lambda4: 0.001             # unused (endpoint)
+      lambda5: 1.5               # topo guide
+      lambda6: 10.0              # unused (visibility)
+      lambda7: 20.0              # waypoints / refine anchor
+      lambda_yaw_rate: 15.0      # with manager.max_yaw_rate
+      lambda_pitch_rate: 15.0    # with manager.max_pitch_rate
+      lambda_min_vel: 0.1        # with manager.min_vel
+      dist0: 0.3                 # clearance hinge [m]
+      max_iteration_num1: 30     # guide-phase eval budget
+      max_iteration_num2: 300    # full / refine eval budget
+      max_iteration_time1: 0.003 # guide-phase time [s]
+      max_iteration_time2: 0.005 # full / refine time [s]
+      order: 3                   # B-spline degree
 
     heading_planner:
       yaw_diff: 0.08726646
@@ -148,3 +142,4 @@
       ros__parameters:
         traj_server:
           time_forward: 1.5
+          initialpose_topic: /control/initial_pose

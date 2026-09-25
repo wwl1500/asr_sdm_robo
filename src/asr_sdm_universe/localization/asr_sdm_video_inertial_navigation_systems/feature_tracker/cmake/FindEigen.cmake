@@ -26,7 +26,6 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 #
-# Author: alexs.mac@gmail.com (Alex Stewart)
 #
 
 # FindEigen.cmake - Find Eigen library, version >= 3.

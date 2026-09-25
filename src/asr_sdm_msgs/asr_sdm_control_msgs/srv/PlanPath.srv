@@ -1,0 +1,38 @@
+# Plan a feasible 3D Dubins path between two configurations subject to bounded
+# pitch and yaw rates.
+
+asr_sdm_control_msgs/Configuration initial
+asr_sdm_control_msgs/Configuration final
+
+# Radius of the sphere reached when the pitch rate is maximal and the yaw rate is
+# zero. Non-positive means "use the node parameter".
+float64 pitch_radius
+
+# Radius of the sphere reached when the yaw rate is maximal and the pitch rate is
+# zero. Non-positive means "use the node parameter".
+float64 yaw_radius
+
+# Tight-turn radius used on the spherical surfaces. Non-positive means it is
+# derived from pitch_radius and yaw_radius as
+#   1 / sqrt(1/pitch_radius^2 + 1/yaw_radius^2).
+float64 tight_turn_radius
+
+# Discretisation counts for the location and heading parameters of the
+# intermediary surface. Non-positive means "use the node parameter".
+int32 location_samples
+int32 heading_samples
+
+# Spacing in metres between consecutive samples of the returned path.
+# Non-positive means "use the node parameter".
+float64 sample_spacing
+---
+bool success
+string message
+asr_sdm_control_msgs/DubinsPath path
+
+# Length of the best path found for every candidate construction, in the same
+# order as candidate_types. Infinite entries mean the construction is infeasible.
+string[] candidate_types
+float64[] candidate_lengths
+
+float64 planning_time

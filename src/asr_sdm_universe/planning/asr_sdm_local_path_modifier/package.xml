@@ -12,6 +12,7 @@
   <!-- Core library dependency. -->
   <depend>eigen</depend>
   <depend>asr_sdm_esdf_map</depend>
+  <depend>asr_sdm_log_collector</depend>
 
   <!-- RViz test node dependencies. They are intentionally not exported by CMake targets. -->
   <build_depend>rclcpp</build_depend>

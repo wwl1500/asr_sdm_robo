@@ -26,7 +26,7 @@ source install/setup.bash
 ros2 launch planning_simulator planning_simulator.launch.py
 ```
 
-By default this starts the random map, RViz, the `asr_sdm` robot model, and the kinematic controller. The model appears at `(-5, 0, 0)`. Gamepad teleop and planning are off.
+By default this starts the random map, RViz, the `asr_sdm` robot model, the kinematic controller, and `asr_sdm_log_collector`. The model appears at `(-5, 0, 0)`. Gamepad teleop and planning are off. Logs land under `~/log/vehicle/latest`.
 
 List all launch arguments:
 
@@ -43,6 +43,7 @@ ros2 launch planning_simulator planning_simulator.launch.py --show-args
 | `control` | `enable` / `disable` | `enable` | Starts `asr_sdm_control_manager` (kinematic controller) |
 | `teleop` | `enable` / `disable` | `disable` | Starts `asr_sdm_teleop` (joy driver + teleop node) |
 | `planning` | `enable` / `disable` | `disable` | Starts `asr_sdm_planning_manager` (topological replanning) |
+| `log_collector` | `enable` / `disable` | `enable` | Starts `asr_sdm_log_collector` (merged rotating logs under `~/log/vehicle`) |
 
 Common combinations:
 
@@ -63,6 +64,9 @@ ros2 launch planning_simulator planning_simulator.launch.py odom_source:=control
 # Everything on
 ros2 launch planning_simulator planning_simulator.launch.py \
   robot_model:=asr_sdm control:=enable teleop:=enable planning:=enable
+
+# Without the log collector
+ros2 launch planning_simulator planning_simulator.launch.py log_collector:=disable
 
 # Map and RViz only, no controller (model will not move; may be invisible in RViz if Fixed Frame is world)
 ros2 launch planning_simulator planning_simulator.launch.py control:=disable
@@ -86,7 +90,7 @@ This file documents the topic names used by the launch. Initial pose and control
 | `/control/asr_sdm/odom` | Odometry published by the controller; model pose source with `odom_source:=control`. Planning and map sensing also use this topic so a new goal starts from the current robot pose |
 | `/localization/video_inertial_navigation_systems/odometry` | VINS odometry; model pose source with `odom_source:=vins` |
 | `/control/joint_states` | Joint states for `robot_state_publisher` |
-| `/control/initial_pose` | Reset controller pose (RViz 2D Pose Estimate) |
+| `/control/initial_pose` | RViz 2D Pose Estimate: reset controller pose and drop the current plan |
 | `/simulator/planning_simulator/add_static_obstacle` | Click-to-add pillar obstacles (RViz Static Obstacle tool) |
 
 Without a gamepad, publish a RobotCommand (using `vel`) to exercise the controller:
@@ -121,6 +125,7 @@ Responsibilities:
 | `asr_sdm_control_manager` | Kinematic controller |
 | `asr_sdm_teleop` | `joy` + teleop |
 | `asr_sdm_planning_manager` | Planning and trajectory server |
+| `asr_sdm_log_collector` | Merged rotating logs (`~/log/vehicle`) |
 
 ### Standalone launches (debug)
 
@@ -129,6 +134,7 @@ ros2 launch asr_sdm asr_sdm_description.launch.py
 ros2 launch asr_sdm_control_manager asr_sdm_control_manager.launch.py
 ros2 launch asr_sdm_teleop asr_sdm_teleop.launch.py
 ros2 launch asr_sdm_planning_manager asr_sdm_planning_manager.launch.py
+ros2 launch asr_sdm_log_collector asr_sdm_log_collector.launch.py
 ```
 
 The model launch alone does not publish a world-frame pose. The controller’s odom only becomes `world → base` when this package’s `odom_visualization` (`tf45`) is running. For normal use, start `planning_simulator.launch.py`.
@@ -155,7 +161,7 @@ source install/setup.bash
 ros2 launch planning_simulator planning_simulator.launch.py
 ```
 
-默认会启动随机地图、RViz，并加载 `asr_sdm` 机器人模型与运动学控制器。模型会显示在 `(-5, 0, 0)`，手柄遥控和规划模块默认关闭。
+默认会启动随机地图、RViz，并加载 `asr_sdm` 机器人模型、运动学控制器和 `asr_sdm_log_collector`。模型会显示在 `(-5, 0, 0)`，手柄遥控和规划模块默认关闭。日志写在 `~/log/vehicle/latest`。
 
 查看全部启动参数：
 
@@ -172,6 +178,7 @@ ros2 launch planning_simulator planning_simulator.launch.py --show-args
 | `control` | `enable` / `disable` | `enable` | 启动 `asr_sdm_control_manager`（运动学控制器） |
 | `teleop` | `enable` / `disable` | `disable` | 启动 `asr_sdm_teleop`（手柄驱动 + teleop 节点） |
 | `planning` | `enable` / `disable` | `disable` | 启动 `asr_sdm_planning_manager`（拓扑重规划） |
+| `log_collector` | `enable` / `disable` | `enable` | 启动 `asr_sdm_log_collector`（合并滚动日志，目录 `~/log/vehicle`） |
 
 常用组合：
 
@@ -192,6 +199,9 @@ ros2 launch planning_simulator planning_simulator.launch.py odom_source:=control
 # 全开
 ros2 launch planning_simulator planning_simulator.launch.py \
   robot_model:=asr_sdm control:=enable teleop:=enable planning:=enable
+
+# 不启动日志采集
+ros2 launch planning_simulator planning_simulator.launch.py log_collector:=disable
 
 # 只看地图和 RViz，不启动控制器（模型不会动，RViz Fixed Frame 为 world 时可能看不见模型）
 ros2 launch planning_simulator planning_simulator.launch.py control:=disable
@@ -215,7 +225,7 @@ config/planning_simulator.yaml
 | `/control/asr_sdm/odom` | 控制器发布的里程计；`odom_source:=control` 时作为模型位姿来源。规划与地图感知也订阅该话题，第二次设目标会从当前机器人位置开始 |
 | `/localization/video_inertial_navigation_systems/odometry` | VINS 里程计；`odom_source:=vins` 时作为模型位姿来源 |
 | `/control/joint_states` | 控制器发布的关节状态，供给 `robot_state_publisher` |
-| `/control/initial_pose` | 重置控制器位姿（RViz 2D Pose Estimate） |
+| `/control/initial_pose` | RViz 2D Pose Estimate：重置控制器位姿并丢掉当前规划 |
 | `/simulator/planning_simulator/add_static_obstacle` | RViz Static Obstacle 工具点击加点柱障碍 |
 
 无手柄时可用 topic 直接发速度测试控制器：
@@ -250,6 +260,7 @@ ros2 topic pub --rate 20 /control/asr_sdm/robot_cmd asr_sdm_control_msgs/msg/Rob
 | `asr_sdm_control_manager` | 运动学控制器 |
 | `asr_sdm_teleop` | `joy` + teleop |
 | `asr_sdm_planning_manager` | 规划与轨迹服务 |
+| `asr_sdm_log_collector` | 合并滚动日志（`~/log/vehicle`） |
 
 ### 独立启动（调试用）
 
@@ -258,6 +269,7 @@ ros2 launch asr_sdm asr_sdm_description.launch.py
 ros2 launch asr_sdm_control_manager asr_sdm_control_manager.launch.py
 ros2 launch asr_sdm_teleop asr_sdm_teleop.launch.py
 ros2 launch asr_sdm_planning_manager asr_sdm_planning_manager.launch.py
+ros2 launch asr_sdm_log_collector asr_sdm_log_collector.launch.py
 ```
 
 模型独立启动时没有世界坐标系下的位姿；控制器提供的 odom 需要配合本包的 `odom_visualization`（`tf45`）才会出现 `world → base`。正常使用请直接启动本包的 `planning_simulator.launch.py`。

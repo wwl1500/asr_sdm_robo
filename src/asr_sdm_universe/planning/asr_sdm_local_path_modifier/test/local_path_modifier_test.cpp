@@ -3,6 +3,7 @@
 
 #include <Eigen/Core>
 #include <asr_sdm_local_path_modifier/topo_path_modifier.hpp>
+#include <asr_sdm_log_collector/log_client.hpp>
 #include <rclcpp/rclcpp.hpp>
 
 #include <geometry_msgs/msg/point.hpp>
@@ -340,7 +341,9 @@ private:
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
+  asr_sdm::log::initialize("local_path_modifier_test");
   rclcpp::spin(std::make_shared<amprobo::LocalPathModifierTestNode>());
+  asr_sdm::log::shutdown();
   rclcpp::shutdown();
   return 0;
 }

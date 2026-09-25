@@ -11,6 +11,8 @@
 #include <asr_sdm_trajectory_generator/mini_snap_traj.h>
 #include <bspline/non_uniform_bspline.h>
 
+#include <algorithm>
+#include <cmath>
 #include <vector>
 
 using std::vector;
@@ -133,13 +135,27 @@ public:
       radius = (cur_pt - first_pt).norm();
     }
 
-    // get parameterization dt by desired density of points
-    int seg_num = floor(seg_length / dist_pt);
+    // One sample per dist_pt, but never more than a few times the samples
+    // a straight crossing of the window would need. A folded min-snap
+    // curve can report tens of km of chord in the first 0.2 s step; that
+    // must not become a K² dense matrix in parameterizeToBspline.
+    const double sample_span = std::max(dist_pt, 1.0e-6);
+    const int max_seg_num =
+      std::max(1, static_cast<int>(std::ceil(4.0 * des_radius / sample_span)));
+    int seg_num = static_cast<int>(std::floor(seg_length / sample_span));
+    if (seg_num > max_seg_num) {
+      RCLCPP_WARN(
+        rclcpp::get_logger("plan_container"),
+        "getTrajByRadius: arc length %.1f m in a %.1f m window, capping samples %d -> %d",
+        seg_length, des_radius, seg_num, max_seg_num);
+      seg_num = max_seg_num;
+    }
+    seg_num = std::max(1, seg_num);
 
     // get outputs
 
     seg_duration = seg_time;  // duration of the truncated segment
-    dt = seg_time / seg_num;  // time difference between to points
+    dt = seg_time / static_cast<double>(seg_num);  // time difference between to points
 
     for (double tp = 0.0; tp <= seg_time + 1e-4; tp += dt) {
       cur_pt = getPosition(start_t + tp);
@@ -184,7 +200,8 @@ struct PlanParameters
   double clearance_;
   int dynamic_;
   // Largest factor by which refinement may stretch the duration of a local
-  // segment to bring it back inside the velocity and acceleration limits.
+  // segment to bring it back inside the velocity, acceleration and heading-rate
+  // limits.
   double max_time_lengthen_ratio_;
   /* nonholonomic robot: the body axis follows the trajectory tangent, so the
    * heading limits below are enforced by the position optimization itself */

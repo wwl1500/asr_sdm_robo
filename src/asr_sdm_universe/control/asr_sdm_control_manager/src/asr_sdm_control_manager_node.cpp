@@ -261,6 +261,9 @@ private:
 
   void onRobotCmd(const asr_sdm_control_msgs::msg::RobotCommand::SharedPtr msg)
   {
+    if (node_->now() < ignore_robot_cmd_until_) {
+      return;
+    }
     cmd_raw_ = *msg;
     cmd_cur_ = controller_->toHeadFollowingCommand(*msg);
     last_cmd_time_ = node_->now();
@@ -286,6 +289,9 @@ private:
       return;
     }
 
+    // Arm the ignore window before clearing state so a concurrent robot_cmd
+    // from traj_server cannot overwrite the reset.
+    ignore_robot_cmd_until_ = node_->now() + rclcpp::Duration::from_seconds(0.15);
     resetState(
       msg->pose.pose.position.x, msg->pose.pose.position.y, msg->pose.pose.position.z,
       orientation.x / norm, orientation.y / norm,
@@ -294,6 +300,9 @@ private:
     last_control_time_ = node_->now();
     publishControllerState(asr_sdm_control_msgs::msg::RobotCommand{}, {});
     publishRobotState(asr_sdm_control_msgs::msg::RobotCommand{}, {});
+    SPDLOG_INFO(
+      "pose reset to ({:.3f},{:.3f},{:.3f})",
+      msg->pose.pose.position.x, msg->pose.pose.position.y, msg->pose.pose.position.z);
   }
 
   void resetState(double x, double y, double z, double yaw)
@@ -420,7 +429,9 @@ private:
 
     asr_sdm_control_msgs::msg::RobotCommand robot_cmd = cmd_cur_;
     bool timed_out = false;
-    if ((current_time - last_cmd_time_).seconds() > cmd_timeout_sec_) {
+    if (current_time < ignore_robot_cmd_until_ ||
+      (current_time - last_cmd_time_).seconds() > cmd_timeout_sec_)
+    {
       robot_cmd = asr_sdm_control_msgs::msg::RobotCommand();
       timed_out = true;
     }
@@ -604,6 +615,7 @@ private:
 
   rclcpp::Time last_cmd_time_{0, 0, RCL_ROS_TIME};
   rclcpp::Time last_control_time_{0, 0, RCL_ROS_TIME};
+  rclcpp::Time ignore_robot_cmd_until_{0, 0, RCL_ROS_TIME};
   std::chrono::steady_clock::time_point last_robot_cmd_log_{};
   std::chrono::steady_clock::time_point last_compensation_log_{};
   rclcpp::Subscription<asr_sdm_control_msgs::msg::RobotCommand>::SharedPtr sub_robot_cmd_;

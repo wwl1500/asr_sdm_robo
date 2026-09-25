@@ -32,6 +32,7 @@ find_package(rosidl_default_generators REQUIRED)
 
 find_package(asr_sdm_control_msgs REQUIRED)
 find_package(asr_sdm_esdf_map REQUIRED)
+find_package(asr_sdm_guidance_planner REQUIRED)
 find_package(asr_sdm_local_path_modifier REQUIRED)
 find_package(bspline REQUIRED)
 find_package(asr_sdm_trajectory_generator REQUIRED)
@@ -58,6 +59,7 @@ set(asr_sdm_planning_manager_dependencies
   builtin_interfaces
   cv_bridge
   asr_sdm_control_msgs
+  asr_sdm_guidance_planner
   asr_sdm_local_path_modifier
   bspline
   asr_sdm_trajectory_generator
